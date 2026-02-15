@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::ptr;
+use std::vec::Vec;
 use std::slice::from_raw_parts;
 use libloading::{Library, Symbol};
 
@@ -66,6 +67,90 @@ impl PjrtRuntime {
 
         Err(error_to_string(self.api(), err))
     }
+
+    pub fn create_client(&self) -> Result<*mut PJRT_Client, String> {
+        let f = self.api().PJRT_Client_Create
+            .ok_or("PJRT_Client_Create symbol not found")?;
+
+        let mut args = PJRT_Client_Create_Args {
+            struct_size: PJRT_Client_Create_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            create_options: ptr::null(),
+            num_options: 0,
+            kv_get_callback: None,
+            kv_get_user_arg: ptr::null_mut(),
+            kv_put_callback: None,
+            kv_put_user_arg: ptr::null_mut(),
+            client: ptr::null_mut(),
+            kv_try_get_callback: None,
+            kv_try_get_user_arg: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+
+        if err.is_null() {
+            if args.client.is_null() {
+                return Err("PJRT_Client_Create succeeded but returned null client".into());
+            }
+            Ok(args.client)
+        } else {
+            Err(error_to_string(self.api(), err))
+        }
+    }
+
+    pub fn destroy_client(&self, client: *mut PJRT_Client) -> Result<(), String> {
+        let f = self.api().PJRT_Client_Destroy
+            .ok_or("PJRT_Client_Destroy symbol not found")?;
+
+        let mut args = PJRT_Client_Destroy_Args {
+            struct_size: PJRT_Client_Destroy_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+        };
+
+        let err = unsafe { f(&mut args) };
+
+        if err.is_null() {
+            Ok(())
+        } else {
+            Err(error_to_string(self.api(), err))
+        }
+
+    }
+
+    #[allow(dead_code)]
+    pub fn create_device(&self) -> Result<*mut PJRT_Device, String> {
+        Err("PJRT_Device objects are obtained from PJRT_Client_Devices; there is no PJRT_Device_Create in the C API".to_string())
+    }
+
+    pub fn client_devices(&self, client: *mut PJRT_Client) -> Result<*mut [PJRT_Device], String> {
+        let f = self.api().PJRT_Client_Devices
+            .ok_or("PJRT_Client_Devices symbol not found")?;
+
+        let mut args = PJRT_Client_Devices_Args {
+            struct_size: PJRT_Client_Devices_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            devices: ptr::null_mut(),
+            num_devices: 0,
+        };
+
+        let err = unsafe { f(&mut args) };
+
+        if err.is_null() {
+            let devices = unsafe { from_raw_parts(args.devices, args.num_devices) };
+            devices.iter().map(|d| Ok(*d)).collect() todo!()
+        } else {
+            Err(error_to_string(self.api(), err))
+        }
+
+    }
+
+
+    pub fn
+
+
+
 }
 
 fn error_to_string(api: &PJRT_Api, error: *mut PJRT_Error) -> String {

@@ -14,9 +14,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  smoke:
-    name: Rust + Test Harness Smoke
-    runs-on: ubuntu-latest
+  rust_tests:
+    name: Rust Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,18 +33,19 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Cargo Check
-        run: cargo check --all-targets
+      - name: Cargo Test
+        run: cargo test --all-targets
 
       - name: Validate Test Scripts
+        if: runner.os != 'Windows'
         run: |
           bash -n tests/common.sh tests/run_pjrt_loader_smoke.sh tests/run_jax_plugin_smoke.sh
-          python3 -m py_compile tests/jax_plugin_smoke.py tests/jax_plugins/rrad_xla_cpu/__init__.py
+          python -m py_compile tests/jax_plugin_smoke.py tests/jax_plugins/rrad_xla_cpu/__init__.py
 
   pjrt_loader_integration:
     name: PJRT Loader Integration (macOS)
     runs-on: macos-14
-    needs: smoke
+    needs: rust_tests
     timeout-minutes: 180
     steps:
       - name: Checkout
@@ -48,6 +53,11 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Install Bazelisk
         run: brew install bazelisk
@@ -102,6 +112,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Python
         uses: actions/setup-python@v5

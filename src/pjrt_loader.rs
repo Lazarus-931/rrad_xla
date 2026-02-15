@@ -123,7 +123,7 @@ impl PjrtRuntime {
         Err("PJRT_Device objects are obtained from PJRT_Client_Devices; there is no PJRT_Device_Create in the C API".to_string())
     }
 
-    pub fn client_devices(&self, client: *mut PJRT_Client) -> Result<*mut [PJRT_Device], String> {
+    pub fn client_devices(&self, client: *mut PJRT_Client) -> Result<Vec<*mut PJRT_Device>, String> {
         let f = self.api().PJRT_Client_Devices
             .ok_or("PJRT_Client_Devices symbol not found")?;
 
@@ -131,26 +131,27 @@ impl PjrtRuntime {
             struct_size: PJRT_Client_Devices_Args_STRUCT_SIZE as usize,
             extension_start: ptr::null_mut(),
             client,
-            devices: ptr::null_mut(),
+            devices: ptr::null(),
             num_devices: 0,
         };
 
         let err = unsafe { f(&mut args) };
 
-        if err.is_null() {
-            let devices = unsafe { from_raw_parts(args.devices, args.num_devices) };
-            devices.iter().map(|d| Ok(*d)).collect() todo!()
-        } else {
-            Err(error_to_string(self.api(), err))
+        if !err.is_null() {
+            return Err(error_to_string(self.api(), err));
         }
 
+        if args.num_devices == 0 {
+            return Ok(Vec::new());
+        }
+
+        if args.devices.is_null() {
+            return Err("PJRT_Client_Devices returned null devices with nonzero count".to_string());
+        }
+
+        let devices = unsafe { from_raw_parts(args.devices, args.num_devices) };
+        Ok(devices.to_vec())
     }
-
-
-    pub fn
-
-
-
 }
 
 fn error_to_string(api: &PJRT_Api, error: *mut PJRT_Error) -> String {

@@ -1,2 +1,2 @@
 pub mod pjrt_sys;
-pub mod pjrt_loader;
+pub mod pjrt;

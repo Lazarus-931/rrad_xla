@@ -154,7 +154,7 @@ impl PjrtRuntime {
     }
 }
 
-fn error_to_string(api: &PJRT_Api, error: *mut PJRT_Error) -> String {
+pub(crate) fn error_to_string(api: &PJRT_Api, error: *mut PJRT_Error) -> String {
     if error.is_null() {
         return "unknown PJRT error".to_string();
     }
@@ -194,4 +194,47 @@ fn error_to_string(api: &PJRT_Api, error: *mut PJRT_Error) -> String {
     }
 
     msg
+}
+
+
+
+
+
+
+
+
+
+#[cfg(test)]
+mod PjrtRuntimeTests {
+    use crate::pjrt::loader::PjrtRuntime;
+    use crate::pjrt_sys::PJRT_Device;
+
+    #[test]
+    fn test_load() {
+        let _ = PjrtRuntime::load("target/debug/libpjrt_test_plugin.so".as_ref());
+    }
+
+    #[test]
+    fn test_create_client() {
+        let rt = PjrtRuntime::load("target/debug/libpjrt_test_plugin.so".as_ref()).unwrap();
+        rt.create_client().unwrap();
+    }
+
+    #[test]
+    fn test_initialize_plugin() {
+        let rt = PjrtRuntime::load("target/debug/libpjrt_test_plugin.so".as_ref()).unwrap();
+        rt.initialize_plugin().unwrap();
+    }
+
+    #[test]
+    fn test_client_devices() {
+        let rt = PjrtRuntime::load("target/debug/libpjrt_test_plugin.so".as_ref()).unwrap();
+        let client = rt.create_client().unwrap();
+        assert!(!client.is_null());
+        assert!(!rt.client_devices(client).unwrap().is_empty())
+    }
+
+
+
+
 }

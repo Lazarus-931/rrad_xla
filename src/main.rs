@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::process::ExitCode;
-use rrad_xla::pjrt_loader::PjrtRuntime;
+use rrad_xla::pjrt::loader::PjrtRuntime;
 
 fn main() -> ExitCode {
 

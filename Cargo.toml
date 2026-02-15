@@ -1,0 +1,19 @@
+[package]
+name = "rrad_xla"
+version = "0.1.0"
+edition = "2021"
+description = "Experimental Rust foundations for XLA HLO/PJRT integration"
+license = "Apache-2.0"
+
+
+[lib]
+name = "rrad_xla"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rrad_xla"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2.0"
+libloading = "0.9.0"

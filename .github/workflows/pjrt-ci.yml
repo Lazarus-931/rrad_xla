@@ -1,0 +1,159 @@
+name: PJRT CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Keep this pinned to the XLA commit that matches your PJRT C API bindings.
+  XLA_COMMIT: d69d52a2d9140a1dafe3d044ab4dba27eba528ae
+
+concurrency:
+  group: pjrt-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Rust + Test Harness Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cargo Check
+        run: cargo check --all-targets
+
+      - name: Validate Test Scripts
+        run: |
+          bash -n tests/common.sh tests/run_pjrt_loader_smoke.sh tests/run_jax_plugin_smoke.sh
+          python3 -m py_compile tests/jax_plugin_smoke.py tests/jax_plugins/rrad_xla_cpu/__init__.py
+
+  pjrt_loader_integration:
+    name: PJRT Loader Integration (macOS)
+    runs-on: macos-14
+    needs: smoke
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Bazelisk
+        run: brew install bazelisk
+
+      - name: Fetch XLA (Pinned)
+        run: |
+          rm -rf xla
+          git init xla
+          cd xla
+          git remote add origin https://github.com/openxla/xla.git
+          git fetch --depth 1 origin "${XLA_COMMIT}"
+          git checkout FETCH_HEAD
+
+      - name: Patch XLA For OSS Rules (strict_deps)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("xla/xla/tsl/tsl.bzl")
+          txt = path.read_text(encoding="utf-8")
+          if "strict_deps" not in txt:
+              print("No strict_deps found; skipping patch.")
+              raise SystemExit(0)
+          lines = txt.splitlines(True)
+          new_lines = [ln for ln in lines if "strict_deps" not in ln]
+          path.write_text("".join(new_lines), encoding="utf-8")
+          print("Patched:", path)
+          PY
+
+      - name: Build PJRT CPU Plugin
+        run: |
+          PYBIN="$(command -v python3)"
+          SDK_VER="$(xcrun --show-sdk-version --sdk macosx)"
+          echo "Using python ${PYBIN}"
+          echo "Using macOS SDK ${SDK_VER}"
+          cd xla
+          bazel build \
+            --python_path="${PYBIN}" \
+            --action_env=PYTHON_BIN_PATH="${PYBIN}" \
+            --repo_env=PYTHON_BIN_PATH="${PYBIN}" \
+            --macos_sdk_version="${SDK_VER}" \
+            //xla/pjrt/c:pjrt_c_api_cpu_plugin.so
+
+      - name: Run Rust PJRT Loader Smoke
+        run: tests/run_pjrt_loader_smoke.sh
+
+  jax_plugin_smoke:
+    name: JAX Plugin Smoke (Manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-14
+    needs: pjrt_loader_integration
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Bazelisk
+        run: brew install bazelisk
+
+      - name: Fetch XLA (Pinned)
+        run: |
+          rm -rf xla
+          git init xla
+          cd xla
+          git remote add origin https://github.com/openxla/xla.git
+          git fetch --depth 1 origin "${XLA_COMMIT}"
+          git checkout FETCH_HEAD
+
+      - name: Patch XLA For OSS Rules (strict_deps)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("xla/xla/tsl/tsl.bzl")
+          txt = path.read_text(encoding="utf-8")
+          if "strict_deps" not in txt:
+              print("No strict_deps found; skipping patch.")
+              raise SystemExit(0)
+          lines = txt.splitlines(True)
+          new_lines = [ln for ln in lines if "strict_deps" not in ln]
+          path.write_text("".join(new_lines), encoding="utf-8")
+          print("Patched:", path)
+          PY
+
+      - name: Build PJRT CPU Plugin
+        run: |
+          PYBIN="$(command -v python3)"
+          SDK_VER="$(xcrun --show-sdk-version --sdk macosx)"
+          echo "Using python ${PYBIN}"
+          echo "Using macOS SDK ${SDK_VER}"
+          cd xla
+          bazel build \
+            --python_path="${PYBIN}" \
+            --action_env=PYTHON_BIN_PATH="${PYBIN}" \
+            --repo_env=PYTHON_BIN_PATH="${PYBIN}" \
+            --macos_sdk_version="${SDK_VER}" \
+            //xla/pjrt/c:pjrt_c_api_cpu_plugin.so
+
+      - name: Install JAX (nightly)
+        run: |
+          python -m pip install --upgrade pip
+          pip install --pre -U jaxlib -i https://us-python.pkg.dev/ml-oss-artifacts-published/jax/simple/
+          pip install git+https://github.com/google/jax
+
+      - name: Run JAX Plugin Smoke
+        run: tests/run_jax_plugin_smoke.sh

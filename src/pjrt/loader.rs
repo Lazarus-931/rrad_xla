@@ -4,6 +4,7 @@ use std::vec::Vec;
 use std::slice::from_raw_parts;
 use libloading::{Library, Symbol};
 
+use crate::pjrt::client::PJRTClient;
 use crate::pjrt_sys::*;
 
 type GetPjrtApiFn = unsafe extern "C" fn() -> *const PJRT_Api;
@@ -96,6 +97,11 @@ impl PjrtRuntime {
         } else {
             Err(error_to_string(self.api(), err))
         }
+    }
+
+    pub fn create_client_raii(&self) -> Result<PJRTClient<'_>, String> {
+        let raw = self.create_client()?;
+        Ok(PJRTClient::new(self, raw))
     }
 
     pub fn destroy_client(&self, client: *mut PJRT_Client) -> Result<(), String> {

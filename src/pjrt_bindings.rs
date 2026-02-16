@@ -1500,7 +1500,7 @@ pub type PJRT_Executable_NumReplicas = ::core::option::Option<
 >;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct PJRT_Executable_NumPartitions_Args {
+    pub struct PJRT_Executable_NumPartitions_Args {
     pub struct_size: usize,
     pub extension_start: *mut PJRT_Extension_Base,
     pub executable: *mut PJRT_Executable,

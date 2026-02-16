@@ -585,7 +585,7 @@ pub struct PJRT_Program {
     pub format: *const libc::c_char,
     pub format_size: usize,
 }
-pub const PJRT_Program_STRUCPJRTLoadedExecutableT_SIZE: _bindgen_ty_32 = 48;
+pub const PJRT_Program_STRUCT_SIZE: _bindgen_ty_32 = 48;
 pub type _bindgen_ty_32 = libc::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -1500,7 +1500,7 @@ pub type PJRT_Executable_NumReplicas = ::core::option::Option<
 >;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-    pub struct PJRT_Executable_NumPartitions_Args {
+pub struct PJRT_Executable_NumPartitions_Args {
     pub struct_size: usize,
     pub extension_start: *mut PJRT_Extension_Base,
     pub executable: *mut PJRT_Executable,

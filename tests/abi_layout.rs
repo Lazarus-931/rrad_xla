@@ -33,4 +33,3 @@ fn pjrt_struct_sizes_match_header_constants() {
         PJRT_Error_Destroy_Args_STRUCT_SIZE as usize
     );
 }
-

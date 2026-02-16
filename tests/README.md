@@ -24,6 +24,12 @@ Run Rust loader smoke test:
 tests/run_pjrt_loader_smoke.sh
 ```
 
+Run Rust CPU runtime integration test (client/topology/device/buffer metadata):
+
+```bash
+tests/run_pjrt_cpu_runtime_test.sh
+```
+
 Run JAX plugin smoke test (add, jit, pmap):
 
 ```bash

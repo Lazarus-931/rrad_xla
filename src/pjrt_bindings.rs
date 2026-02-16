@@ -585,7 +585,7 @@ pub struct PJRT_Program {
     pub format: *const libc::c_char,
     pub format_size: usize,
 }
-pub const PJRT_Program_STRUCT_SIZE: _bindgen_ty_32 = 48;
+pub const PJRT_Program_STRUCPJRTLoadedExecutableT_SIZE: _bindgen_ty_32 = 48;
 pub type _bindgen_ty_32 = libc::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

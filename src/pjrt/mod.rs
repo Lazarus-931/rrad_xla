@@ -1,7 +1,8 @@
-pub mod device;
-pub mod loader;
-pub mod client;
 pub mod buffer;
+pub mod client;
+pub mod compile;
+pub mod device;
 pub mod event;
 pub mod executable;
-mod topology_desc;
+pub mod loader;
+pub mod topology_desc;

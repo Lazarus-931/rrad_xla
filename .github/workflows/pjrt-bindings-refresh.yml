@@ -1,0 +1,105 @@
+name: PJRT Bindings Refresh
+
+on:
+  schedule:
+    - cron: "23 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    name: Refresh pinned XLA + PJRT bindings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install libclang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev
+
+      - name: Install bindgen CLI
+        run: cargo install --locked bindgen-cli
+
+      - name: Resolve latest XLA SHA
+        id: xla_sha
+        run: |
+          set -euo pipefail
+          latest="$(git ls-remote https://github.com/openxla/xla.git refs/heads/main | awk '{print $1}')"
+          current="$(awk '/^[[:space:]]*XLA_COMMIT:/ {print $2; exit}' .github/workflows/pjrt-ci.yml)"
+          echo "latest=${latest}" >> "${GITHUB_OUTPUT}"
+          echo "current=${current}" >> "${GITHUB_OUTPUT}"
+          if [[ "${latest}" != "${current}" ]]; then
+            echo "needs_update=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "needs_update=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Fetch XLA (Latest)
+        if: steps.xla_sha.outputs.needs_update == 'true'
+        run: |
+          rm -rf xla
+          git init xla
+          cd xla
+          git remote add origin https://github.com/openxla/xla.git
+          git fetch --depth 1 origin "${{ steps.xla_sha.outputs.latest }}"
+          git checkout FETCH_HEAD
+
+      - name: Regenerate PJRT bindings
+        if: steps.xla_sha.outputs.needs_update == 'true'
+        run: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h src/pjrt_bindings.rs
+
+      - name: Update pinned XLA commit in CI workflow
+        if: steps.xla_sha.outputs.needs_update == 'true'
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+
+          workflow = pathlib.Path(".github/workflows/pjrt-ci.yml")
+          text = workflow.read_text(encoding="utf-8")
+          latest_sha = os.environ["LATEST_XLA_SHA"]
+          updated = re.sub(
+              r"(^\s*XLA_COMMIT:\s*)([0-9a-f]{40})(\s*$)",
+              rf"\g<1>{latest_sha}\g<3>",
+              text,
+              flags=re.MULTILINE,
+          )
+          if updated == text:
+              raise SystemExit("Could not find XLA_COMMIT line to update")
+          workflow.write_text(updated, encoding="utf-8")
+          PY
+        env:
+          LATEST_XLA_SHA: ${{ steps.xla_sha.outputs.latest }}
+
+      - name: Run ABI layout test
+        if: steps.xla_sha.outputs.needs_update == 'true'
+        run: cargo test --test abi_layout
+
+      - name: Create pull request
+        if: steps.xla_sha.outputs.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: refresh XLA pin and regenerate PJRT bindings"
+          branch: "chore/pjrt-bindings-refresh-${{ steps.xla_sha.outputs.latest }}"
+          delete-branch: true
+          title: "chore: refresh PJRT bindings from latest XLA"
+          body: |
+            Automated weekly refresh:
+            - updated `XLA_COMMIT` in `.github/workflows/pjrt-ci.yml`
+            - regenerated `src/pjrt_bindings.rs` from `xla/pjrt/c/pjrt_c_api.h`
+            - ran `cargo test --test abi_layout`
+          labels: |
+            dependencies
+            automation
+          add-paths: |
+            .github/workflows/pjrt-ci.yml
+            src/pjrt_bindings.rs

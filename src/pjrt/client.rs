@@ -1,18 +1,19 @@
+use crate::pjrt::buffer::PJRTBuffer;
+use crate::pjrt::compile::PJRTCompiler;
+use crate::pjrt::event::PJRTEvent;
+use crate::pjrt::executable::PJRTLoadedExecutable;
+use crate::pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::pjrt::topology_desc::{PJRTNamedAttribute, PJRTTopologyDescription};
+use crate::pjrt_sys::*;
 use std::ffi::c_void;
 use std::ptr;
-
-use crate::pjrt::buffer::PJRTBuffer;
-use crate::pjrt::event::PJRTEvent;
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
-use crate::pjrt_sys::*;
 
 //raii wrapper for PJRT_Client
 
 pub struct PJRTClient<'a> {
-    rt: &'a PjrtRuntime,
-    raw_client: *mut PJRT_Client,
+    pub rt: &'a PjrtRuntime,
+    pub raw_client: *mut PJRT_Client,
 }
-
 
 impl<'a> PJRTClient<'a> {
     pub(crate) fn new(rt: &'a PjrtRuntime, raw_client: *mut PJRT_Client) -> Self {
@@ -27,6 +28,105 @@ impl<'a> PJRTClient<'a> {
         self.raw_client
     }
 
+    pub fn raw_checked(&self) -> Result<*mut PJRT_Client, String> {
+        if self.raw_client.is_null() {
+            Err("PJRT_Client is null".to_string())
+        } else {
+            Ok(self.raw_client)
+        }
+    }
+
+    pub fn compiler(&self) -> PJRTCompiler<'a> {
+        PJRTCompiler::new(self.rt, self.raw_client)
+    }
+
+    pub fn compile(
+        &self,
+        program_code: &str,
+        format: &str,
+        compile_options: &[u8],
+    ) -> Result<PJRTLoadedExecutable<'a>, String> {
+        self.compiler()
+            .compile(program_code, format, compile_options)
+    }
+
+    pub fn topology_description(&self) -> Result<PJRTTopologyDescription<'a>, String> {
+        if self.raw_client.is_null() {
+            return Err("PJRT_Client is null".to_string());
+        }
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_TopologyDescription
+            .ok_or("PJRT_Client_TopologyDescription symbol not found")?;
+
+        let mut args = PJRT_Client_TopologyDescription_Args {
+            struct_size: PJRT_Client_TopologyDescription_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client: self.raw_client,
+            topology: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.topology.is_null() {
+            return Err("PJRT_Client_TopologyDescription returned null topology".into());
+        }
+
+        Ok(PJRTTopologyDescription::new(self.rt, args.topology))
+    }
+
+    pub fn topology_platform_name(&self) -> Result<String, String> {
+        self.topology_description()?.platform_name()
+    }
+
+    pub fn platform_version(&self) -> Result<String, String> {
+        let client = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_PlatformVersion
+            .ok_or("PJRT_Client_PlatformVersion symbol not found")?;
+
+        let mut args = PJRT_Client_PlatformVersion_Args {
+            struct_size: PJRT_Client_PlatformVersion_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            platform_version: ptr::null(),
+            platform_version_size: 0,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.platform_version.is_null() {
+            if args.platform_version_size == 0 {
+                return Ok(String::new());
+            }
+            return Err(
+                "PJRT_Client_PlatformVersion returned null platform_version with nonzero size"
+                    .to_string(),
+            );
+        }
+
+        let bytes = unsafe {
+            std::slice::from_raw_parts(
+                args.platform_version as *const u8,
+                args.platform_version_size,
+            )
+        };
+        Ok(String::from_utf8_lossy(bytes).into_owned())
+    }
+
+    pub fn topology_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, String> {
+        self.topology_description()?.attributes()
+    }
+
     pub fn buffer_from_host_buffer(
         &self,
         data: *const c_void,
@@ -36,9 +136,7 @@ impl<'a> PJRTClient<'a> {
         host_buffer_semantics: PJRT_HostBufferSemantics,
         device: Option<*mut PJRT_Device>,
     ) -> Result<(PJRTBuffer<'a>, Option<PJRTEvent<'a>>), String> {
-        if self.raw_client.is_null() {
-            return Err("PJRT_Client is null".to_string());
-        }
+        let client = self.raw_checked()?;
 
         if data.is_null() {
             return Err("host data pointer is null".to_string());
@@ -76,7 +174,7 @@ impl<'a> PJRTClient<'a> {
         let mut args = PJRT_Client_BufferFromHostBuffer_Args {
             struct_size: PJRT_Client_BufferFromHostBuffer_Args_STRUCT_SIZE as usize,
             extension_start: ptr::null_mut(),
-            client: self.raw_client,
+            client,
             data,
             type_: element_type,
             dims: dims.as_ptr(),
@@ -96,7 +194,9 @@ impl<'a> PJRTClient<'a> {
             return Err(error_to_string(self.rt.api(), err));
         }
         if args.buffer.is_null() {
-            return Err("PJRT_Client_BufferFromHostBuffer succeeded but returned null buffer".into());
+            return Err(
+                "PJRT_Client_BufferFromHostBuffer succeeded but returned null buffer".into(),
+            );
         }
 
         let buffer = PJRTBuffer::new(self.rt, args.buffer);
@@ -139,6 +239,44 @@ impl<'a> PJRTClient<'a> {
         let rt = self.rt;
         std::mem::forget(self);
         rt.destroy_client(raw)
+    }
+
+    pub fn platform_name(&self) -> Result<String, String> {
+        let client = self.raw_checked()?;
+
+        let platform = self
+            .rt
+            .api()
+            .PJRT_Client_PlatformName
+            .ok_or("PJRT_Client_PlatformName symbol not found")?;
+
+        let mut args = PJRT_Client_PlatformName_Args {
+            struct_size: PJRT_Client_PlatformName_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            platform_name: ptr::null(),
+            platform_name_size: 0,
+        };
+
+        let err = unsafe { platform(&mut args) };
+
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.platform_name.is_null() {
+            if args.platform_name_size == 0 {
+                return Ok(String::new());
+            }
+            return Err(
+                "PJRT_Client_PlatformName returned null platform_name with nonzero size"
+                    .to_string(),
+            );
+        }
+
+        let bytes = unsafe {
+            std::slice::from_raw_parts(args.platform_name as *const u8, args.platform_name_size)
+        };
+        Ok(String::from_utf8_lossy(bytes).into_owned())
     }
 }
 

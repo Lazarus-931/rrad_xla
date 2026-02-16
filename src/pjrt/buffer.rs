@@ -1,8 +1,12 @@
 use std::mem;
 use std::ptr;
+use std::ptr::null_mut;
 use std::slice::from_raw_parts;
 
+use crate::pjrt::device::PJRTDevice;
+use crate::pjrt::event::PJRTEvent;
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::pjrt::topology_desc::PJRTNamedAttribute;
 use crate::pjrt_sys::*;
 
 pub struct PJRTBuffer<'a> {
@@ -188,7 +192,10 @@ impl<'a> PJRTBuffer<'a> {
             return Ok(Vec::new());
         }
         if args.dynamic_dim_indices.is_null() {
-            return Err("PJRT_Buffer_DynamicDimensionIndices returned null indices with nonzero count".into());
+            return Err(
+                "PJRT_Buffer_DynamicDimensionIndices returned null indices with nonzero count"
+                    .into(),
+            );
         }
 
         Ok(unsafe { from_raw_parts(args.dynamic_dim_indices, args.num_dynamic_dims).to_vec() })
@@ -220,6 +227,31 @@ impl<'a> PJRTBuffer<'a> {
         } else {
             Err(error_to_string(self.rt.api(), err))
         }
+    }
+
+    pub fn device_ref(&self) -> Result<PJRTDevice<'a>, String> {
+        let raw_device = self.device()?;
+        Ok(PJRTDevice::new(self.rt, raw_device))
+    }
+
+    pub fn device_id(&self) -> Result<i32, String> {
+        self.device_ref()?.id()
+    }
+
+    pub fn device_kind(&self) -> Result<String, String> {
+        self.device_ref()?.kind()
+    }
+
+    pub fn device_process_index(&self) -> Result<i32, String> {
+        self.device_ref()?.process_index()
+    }
+
+    pub fn device_debug_string(&self) -> Result<String, String> {
+        self.device_ref()?.debug_string()
+    }
+
+    pub fn device_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, String> {
+        self.device_ref()?.attributes()
     }
 
     pub fn on_device_size_in_bytes(&self) -> Result<usize, String> {
@@ -270,6 +302,145 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
+    pub fn ready_event(&self) -> Result<PJRTEvent<'a>, String> {
+        let raw = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_ReadyEvent
+            .ok_or("PJRT_Buffer_ReadyEvent symbol not found")?;
+
+        let mut args = PJRT_Buffer_ReadyEvent_Args {
+            struct_size: PJRT_Buffer_ReadyEvent_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            buffer: raw,
+            event: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.event.is_null() {
+            return Err("PJRT_Buffer_ReadyEvent returned null event".to_string());
+        }
+
+        Ok(PJRTEvent::new(self.rt, args.event))
+    }
+
+    pub fn to_host_buffer_async(&self, dst: &mut [u8]) -> Result<PJRTEvent<'a>, String> {
+        let raw = self.raw_checked()?;
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_ToHostBuffer
+            .ok_or("PJRT_Buffer_ToHostBuffer symbol not found")?;
+
+        let mut args = PJRT_Buffer_ToHostBuffer_Args {
+            struct_size: PJRT_Buffer_ToHostBuffer_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            src: raw,
+            host_layout: ptr::null_mut(),
+            dst: if dst.is_empty() {
+                ptr::null_mut()
+            } else {
+                dst.as_mut_ptr().cast::<libc::c_void>()
+            },
+            dst_size: dst.len(),
+            event: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.event.is_null() {
+            return Err("PJRT_Buffer_ToHostBuffer returned null completion event".to_string());
+        }
+        Ok(PJRTEvent::new(self.rt, args.event))
+    }
+
+    pub fn to_host_buffer_blocking(&self, dst: &mut [u8]) -> Result<(), String> {
+        let event = self.to_host_buffer_async(dst)?;
+        event.ok()
+    }
+
+    pub fn copy_raw_to_host_async(
+        &self,
+        dst: &mut [u8],
+        offset: i64,
+    ) -> Result<PJRTEvent<'a>, String> {
+        let raw = self.raw_checked()?;
+        if offset < 0 {
+            return Err("offset must be >= 0".to_string());
+        }
+        let transfer_size = i64::try_from(dst.len())
+            .map_err(|_| "destination size does not fit i64 for CopyRawToHost".to_string())?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_CopyRawToHost
+            .ok_or("PJRT_Buffer_CopyRawToHost symbol not found")?;
+
+        let mut args = PJRT_Buffer_CopyRawToHost_Args {
+            struct_size: PJRT_Buffer_CopyRawToHost_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            buffer: raw,
+            dst: if dst.is_empty() {
+                ptr::null_mut()
+            } else {
+                dst.as_mut_ptr().cast::<libc::c_void>()
+            },
+            offset,
+            transfer_size,
+            event: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.event.is_null() {
+            return Err("PJRT_Buffer_CopyRawToHost returned null completion event".to_string());
+        }
+        Ok(PJRTEvent::new(self.rt, args.event))
+    }
+
+    pub fn copy_to_memory(&self, dst_memory: *mut PJRT_Memory) -> Result<*mut PJRT_Buffer, String> {
+        let raw = self.raw_checked()?;
+        if dst_memory.is_null() {
+            return Err("copy_to_memory: dst_memory is null".to_string());
+        }
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_CopyToMemory
+            .ok_or("PJRT_Buffer_CopyToMemory symbol not found")?;
+
+        let mut args = PJRT_Buffer_CopyToMemory_Args {
+            struct_size: PJRT_Buffer_CopyToMemory_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            buffer: raw,
+            dst_memory,
+            dst_buffer: null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err).to_string())
+        } else {
+            Ok(args.dst_buffer)
+        }
+    }
+
+    pub fn copy_raw_to_host_blocking(&self, dst: &mut [u8], offset: i64) -> Result<(), String> {
+        let event = self.copy_raw_to_host_async(dst, offset)?;
+        event.ok()
+    }
 }
 
 impl Drop for PJRTBuffer<'_> {
@@ -290,7 +461,6 @@ impl Drop for PJRTBuffer<'_> {
 
         let err = unsafe { destroy(&mut args) };
         if !err.is_null() {
-
             let _ = error_to_string(self.rt.api(), err);
         }
     }

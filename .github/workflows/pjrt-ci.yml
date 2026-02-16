@@ -14,6 +14,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  bindings_drift_check:
+    name: PJRT Bindings Drift Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install libclang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev
+
+      - name: Install bindgen CLI
+        run: cargo install --locked bindgen-cli
+
+      - name: Fetch XLA (Pinned)
+        run: |
+          rm -rf xla
+          git init xla
+          cd xla
+          git remote add origin https://github.com/openxla/xla.git
+          git fetch --depth 1 origin "${XLA_COMMIT}"
+          git checkout FETCH_HEAD
+
+      - name: Regenerate PJRT bindings from pinned XLA
+        run: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h src/pjrt_bindings.rs
+
+      - name: Verify bindings are up to date
+        run: |
+          if ! git diff --exit-code -- src/pjrt_bindings.rs; then
+            echo "::error::src/pjrt_bindings.rs is out of date. Run ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h src/pjrt_bindings.rs and commit the result."
+            exit 1
+          fi
+
   rust_tests:
     name: Rust Tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -39,7 +76,7 @@ jobs:
       - name: Validate Test Scripts
         if: runner.os != 'Windows'
         run: |
-          bash -n tests/common.sh tests/run_pjrt_loader_smoke.sh tests/run_jax_plugin_smoke.sh
+          bash -n tests/common.sh tests/run_pjrt_loader_smoke.sh tests/run_pjrt_cpu_runtime_test.sh tests/run_jax_plugin_smoke.sh
           python -m py_compile tests/jax_plugin_smoke.py tests/jax_plugins/rrad_xla_cpu/__init__.py
 
   pjrt_loader_integration:
@@ -102,6 +139,9 @@ jobs:
 
       - name: Run Rust PJRT Loader Smoke
         run: tests/run_pjrt_loader_smoke.sh
+
+      - name: Run Rust PJRT CPU Runtime Test
+        run: tests/run_pjrt_cpu_runtime_test.sh
 
   jax_plugin_smoke:
     name: JAX Plugin Smoke (Manual)

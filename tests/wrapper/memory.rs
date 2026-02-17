@@ -58,3 +58,48 @@ fn memory_id_smoke() -> Result<(), String> {
 
     Ok(())
 }
+
+#[test]
+fn memory_kind_smoke() -> Result<(), String> {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(())
+    };
+
+    let client = rt.create_client_raii()?;
+    let memories = client.addressable_memory_refs()?;
+    assert!(
+        !memories.is_empty(),
+        "expected at least one addressable memory"
+    );
+
+    for memory in &memories {
+        let kind = memory.kind()?;
+        let kind_id = memory.kind_id()?;
+        assert!(!kind.is_empty(), "memory kind should be non-empty");
+        assert!(kind_id >= 0, "memory kind_id should be non-negative");
+    }
+
+    Ok(())
+}
+
+#[test]
+fn memory_to_string_smoke() -> Result<(), String> {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(())
+    };
+
+    let client = rt.create_client_raii()?;
+    let memories = client.addressable_memory_refs()?;
+    assert!(
+        !memories.is_empty(),
+        "expected at least one addressable memory"
+    );
+
+    for memory in &memories {
+        let to_string = memory.to_string()?;
+        assert!(!to_string.is_empty(), "memory to_string should be non-empty");
+    }
+
+    Ok(())
+}
+

@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-
 use rrad_xla::pjrt::device::PJRTDevice;
 use rrad_xla::pjrt::loader::PjrtRuntime;
 
@@ -35,6 +34,25 @@ fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
     let rt = PjrtRuntime::load(&plugin_path)?;
     rt.initialize_plugin()?;
     Ok(Some(rt))
+}
+
+#[test]
+fn general_hardware_smoke() -> Result<(), String> {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
+    
+    let client = rt.create_client_raii()?;
+    let raw_devices = client.devices()?;
+    for device in raw_devices {
+        assert!(!device.is_null(), "raw device should not be null");
+        let device_ = PJRTDevice::new(&rt, device);
+        let hardware_id = device_.local_hardware_id()?;
+        let async_tracking_event = device_.create_async_tracking_event("test")?;
+        assert!(hardware_id.is_negative(), "local hardware id should be negative");
+        assert!(async_tracking_event.raw().is_null(), "async tracking event should be null");
+    };
+    Ok(())
 }
 
 #[test]
@@ -93,4 +111,3 @@ fn device_is_addressable_smoke() -> Result<(), String> {
     );
     Ok(())
 }
-

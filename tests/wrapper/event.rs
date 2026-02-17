@@ -1,0 +1,100 @@
+use std::path::{Path, PathBuf};
+use std::ptr::null_mut;
+
+use rrad_xla::pjrt::event::PJRTEvent;
+use rrad_xla::pjrt::loader::PjrtRuntime;
+use rrad_xla::pjrt_sys::PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
+
+fn resolve_plugin_path() -> Option<PathBuf> {
+    if let Ok(path) = std::env::var("PJRT_PLUGIN") {
+        let p = PathBuf::from(path);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+
+    let candidates = [
+        "xla/bazel-bin/xla/pjrt/c/pjrt_c_api_cpu_plugin.so",
+        "xla/bazel-bin/xla/pjrt/c/pjrt_c_api_cpu_plugin.dylib",
+        "xla/bazel-bin/xla/pjrt/c/pjrt_c_api_cpu_plugin",
+    ];
+    for candidate in candidates {
+        let p = Path::new(candidate).to_path_buf();
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+
+    None
+}
+
+fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
+    let Some(plugin_path) = resolve_plugin_path() else {
+        eprintln!("Skipping wrapper::event tests: PJRT plugin not found");
+        return Ok(None);
+    };
+
+    let rt = PjrtRuntime::load(&plugin_path)?;
+    rt.initialize_plugin()?;
+    Ok(Some(rt))
+}
+
+#[test]
+fn event_create_and_is_ready_smoke() -> Result<(), String> {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
+
+    let event = PJRTEvent::create(&rt)?;
+    assert!(!event.raw().is_null(), "created event should not be null");
+
+    // We only validate this call succeeds; readiness value may vary by backend.
+    let _ready = event.is_ready()?;
+    Ok(())
+}
+
+#[test]
+fn event_on_ready_requires_callback() -> Result<(), String> {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
+
+    let event = PJRTEvent::create(&rt)?;
+    let err = event
+        .on_ready(None, null_mut())
+        .expect_err("on_ready(None, ..) should return an error");
+    assert!(
+        err.contains("callback"),
+        "expected callback validation error, got: {err}"
+    );
+    Ok(())
+}
+
+#[test]
+fn event_from_buffer_ready_event_smoke() -> Result<(), String> {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
+
+    let client = rt.create_client_raii()?;
+    let devices = client.devices()?;
+    if devices.is_empty() {
+        return Err("expected at least one device".to_string());
+    }
+
+    let host = [1.0f32, 2.0f32, 3.0f32, 4.0f32];
+    let buffer = client.buffer_from_host_slice_copy(
+        &host,
+        PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
+        &[host.len() as i64],
+        Some(devices[0]),
+    )?;
+
+    let event = buffer.ready_event()?;
+    event.await_ready()?;
+    event.ok()?;
+    assert!(event.is_ready()?, "ready_event should be ready after await");
+
+    Ok(())
+}
+

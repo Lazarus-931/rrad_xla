@@ -5,6 +5,58 @@ use crate::pjrt::memory::PJRTMemory;
 use crate::pjrt::topology_desc::{PJRTDeviceDescriptionRef, PJRTNamedAttribute};
 use crate::pjrt_sys::*;
 
+#[derive(Debug, Clone)]
+pub struct PJRTDeviceMemoryStats {
+    pub bytes_in_use: i64,
+    pub peak_bytes_in_use: Option<i64>,
+    pub num_allocs: Option<i64>,
+    pub largest_alloc_size: Option<i64>,
+    pub bytes_limit: Option<i64>,
+    pub bytes_reserved: Option<i64>,
+    pub peak_bytes_reserved: Option<i64>,
+    pub bytes_reservable_limit: Option<i64>,
+    pub largest_free_block_bytes: Option<i64>,
+    pub pool_bytes: Option<i64>,
+    pub peak_pool_bytes: Option<i64>,
+}
+
+pub struct PJRTAsyncTrackingEvent<'a> {
+    rt: &'a PjrtRuntime,
+    raw: *mut PJRT_AsyncTrackingEvent,
+}
+
+impl<'a> PJRTAsyncTrackingEvent<'a> {
+    fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_AsyncTrackingEvent) -> Self {
+        Self { rt, raw }
+    }
+
+    pub fn raw(&self) -> *mut PJRT_AsyncTrackingEvent {
+        self.raw
+    }
+}
+
+impl Drop for PJRTAsyncTrackingEvent<'_> {
+    fn drop(&mut self) {
+        if self.raw.is_null() {
+            return;
+        }
+
+        let Some(f) = self.rt.api().PJRT_AsyncTrackingEvent_Destroy else {
+            return;
+        };
+
+        let mut args = PJRT_AsyncTrackingEvent_Destroy_Args {
+            struct_size: PJRT_AsyncTrackingEvent_Destroy_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            event: self.raw,
+        };
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            let _ = error_to_string(self.rt.api(), err);
+        }
+    }
+}
+
 pub struct PJRTDevice<'a> {
     rt: &'a PjrtRuntime,
     raw_device: *mut PJRT_Device,
@@ -78,6 +130,147 @@ impl<'a> PJRTDevice<'a> {
         } else {
             Err(error_to_string(self.rt.api(), err))
         }
+    }
+
+    pub fn memory_stats(&self) -> Result<PJRTDeviceMemoryStats, String> {
+        let raw = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Device_MemoryStats
+            .ok_or("PJRT_Device_MemoryStats symbol not found")?;
+
+        let mut args = PJRT_Device_MemoryStats_Args {
+            struct_size: PJRT_Device_MemoryStats_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            device: raw,
+            bytes_in_use: 0,
+            peak_bytes_in_use: 0,
+            peak_bytes_in_use_is_set: false,
+            num_allocs: 0,
+            num_allocs_is_set: false,
+            largest_alloc_size: 0,
+            largest_alloc_size_is_set: false,
+            bytes_limit: 0,
+            bytes_limit_is_set: false,
+            bytes_reserved: 0,
+            bytes_reserved_is_set: false,
+            peak_bytes_reserved: 0,
+            peak_bytes_reserved_is_set: false,
+            bytes_reservable_limit: 0,
+            bytes_reservable_limit_is_set: false,
+            largest_free_block_bytes: 0,
+            largest_free_block_bytes_is_set: false,
+            pool_bytes: 0,
+            pool_bytes_is_set: false,
+            peak_pool_bytes: 0,
+            peak_pool_bytes_is_set: false,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+
+        Ok(PJRTDeviceMemoryStats {
+            bytes_in_use: args.bytes_in_use,
+            peak_bytes_in_use: args
+                .peak_bytes_in_use_is_set
+                .then_some(args.peak_bytes_in_use),
+            num_allocs: args.num_allocs_is_set.then_some(args.num_allocs),
+            largest_alloc_size: args
+                .largest_alloc_size_is_set
+                .then_some(args.largest_alloc_size),
+            bytes_limit: args.bytes_limit_is_set.then_some(args.bytes_limit),
+            bytes_reserved: args.bytes_reserved_is_set.then_some(args.bytes_reserved),
+            peak_bytes_reserved: args
+                .peak_bytes_reserved_is_set
+                .then_some(args.peak_bytes_reserved),
+            bytes_reservable_limit: args
+                .bytes_reservable_limit_is_set
+                .then_some(args.bytes_reservable_limit),
+            largest_free_block_bytes: args
+                .largest_free_block_bytes_is_set
+                .then_some(args.largest_free_block_bytes),
+            pool_bytes: args.pool_bytes_is_set.then_some(args.pool_bytes),
+            peak_pool_bytes: args.peak_pool_bytes_is_set.then_some(args.peak_pool_bytes),
+        })
+    }
+
+    pub fn poison_execution(
+        &self,
+        launch_id: i32,
+        error_code: PJRT_Error_Code,
+        error_message: &str,
+    ) -> Result<bool, String> {
+        let raw = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Device_PoisonExecution
+            .ok_or("PJRT_Device_PoisonExecution symbol not found")?;
+
+        let error_message_bytes = error_message.as_bytes();
+        let mut args = PJRT_Device_PoisonExecution_Args {
+            struct_size: PJRT_Device_PoisonExecution_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            device: raw,
+            launch_id,
+            error_code,
+            error_message: if error_message_bytes.is_empty() {
+                ptr::null()
+            } else {
+                error_message_bytes.as_ptr() as *const libc::c_char
+            },
+            error_message_size: error_message_bytes.len(),
+            poisoned: false,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if err.is_null() {
+            Ok(args.poisoned)
+        } else {
+            Err(error_to_string(self.rt.api(), err))
+        }
+    }
+
+    pub fn create_async_tracking_event(
+        &self,
+        description: &str,
+    ) -> Result<PJRTAsyncTrackingEvent<'a>, String> {
+        let raw = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Device_CreateAsyncTrackingEvent
+            .ok_or("PJRT_Device_CreateAsyncTrackingEvent symbol not found")?;
+
+        let description_bytes = description.as_bytes();
+        let mut args = PJRT_Device_CreateAsyncTrackingEvent_Args {
+            struct_size: PJRT_Device_CreateAsyncTrackingEvent_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            device: raw,
+            description: if description_bytes.is_empty() {
+                ptr::null()
+            } else {
+                description_bytes.as_ptr() as *const libc::c_char
+            },
+            description_size: description_bytes.len(),
+            event: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.event.is_null() {
+            return Err("PJRT_Device_CreateAsyncTrackingEvent returned null event".to_string());
+        }
+
+        Ok(PJRTAsyncTrackingEvent::new(self.rt, args.event))
     }
 
     pub fn local_hardware_id(&self) -> Result<i32, String> {

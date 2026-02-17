@@ -1,5 +1,4 @@
 use std::ptr;
-use std::ptr::null_mut;
 use std::slice::from_raw_parts;
 
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
@@ -189,30 +188,50 @@ impl<'a> PJRTTopologyDescription<'a> {
         self.raw
     }
 
-    pub fn create(&self) -> Result<(), String> {
-        let function = self.rt.api()
+    pub fn create(
+        rt: &'a PjrtRuntime,
+        topology_name: Option<&str>,
+        create_options: &[PJRT_NamedValue],
+    ) -> Result<Self, String> {
+        let function = rt
+            .api()
             .PJRT_TopologyDescription_Create
             .ok_or("PJRT_TopologyDescription_Create symbol not found")?;
 
+        let (topology_name_ptr, topology_name_size) = match topology_name {
+            None => (ptr::null(), 0usize),
+            Some(name) if name.is_empty() => (ptr::null(), 0usize),
+            Some(name) => (name.as_ptr() as *const libc::c_char, name.len()),
+        };
+
         let mut args = PJRT_TopologyDescription_Create_Args {
             struct_size: PJRT_TopologyDescription_Create_Args_STRUCT_SIZE as usize,
-            extension_start: null_mut(),
-            topology_name: ptr::null(),
-            topology_name_size: 0,
-            create_options: ptr::null(),
-            num_options: 0,
+            extension_start: ptr::null_mut(),
+            topology_name: topology_name_ptr,
+            topology_name_size,
+            create_options: if create_options.is_empty() {
+                ptr::null()
+            } else {
+                create_options.as_ptr()
+            },
+            num_options: create_options.len(),
             topology: ptr::null_mut(),
         };
 
-        let err = unsafe {
-            function(&mut args)
-        };
+        let err = unsafe { function(&mut args) };
 
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err).to_string())
-        } else {
-            Ok(())
+            return Err(error_to_string(rt.api(), err));
         }
+        if args.topology.is_null() {
+            return Err("PJRT_TopologyDescription_Create returned null topology".to_string());
+        }
+
+        Ok(Self::new(rt, args.topology))
+    }
+
+    pub fn create_default(rt: &'a PjrtRuntime) -> Result<Self, String> {
+        Self::create(rt, None, &[])
     }
 
     fn raw_checked(&self) -> Result<*mut PJRT_TopologyDescription, String> {
@@ -349,6 +368,9 @@ impl<'a> PJRTTopologyDescription<'a> {
         if !err.is_null() {
             return Err(error_to_string(self.rt.api(), err));
         }
+        if !args.serialized_topology.is_null() && args.serialized_topology_deleter.is_none() {
+            return Err("Serialize returned serialized_topology without a deleter".to_string());
+        }
         if args.serialized_bytes.is_null() && args.serialized_bytes_size != 0 {
             return Err("Serialize returned null bytes with nonzero size".to_string());
         }
@@ -365,11 +387,43 @@ impl<'a> PJRTTopologyDescription<'a> {
             }
         };
 
-        if let Some(deleter) = args.serialized_topology_deleter {
-            unsafe { deleter(args.serialized_topology) };
+        if !args.serialized_topology.is_null() {
+            if let Some(deleter) = args.serialized_topology_deleter {
+                unsafe { deleter(args.serialized_topology) };
+            }
         }
 
         Ok(bytes)
+    }
+
+    pub fn deserialize(rt: &'a PjrtRuntime, serialized_topology: &[u8]) -> Result<Self, String> {
+        if serialized_topology.is_empty() {
+            return Err("serialized_topology must not be empty".to_string());
+        }
+
+        let f = rt
+            .api()
+            .PJRT_TopologyDescription_Deserialize
+            .ok_or("PJRT_TopologyDescription_Deserialize symbol not found")?;
+
+        let mut args = PJRT_TopologyDescription_Deserialize_Args {
+            struct_size: PJRT_TopologyDescription_Deserialize_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            serialized_topology: serialized_topology.as_ptr() as *const libc::c_char,
+            serialized_topology_size: serialized_topology.len(),
+            topology: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+
+        if !err.is_null() {
+            return Err(error_to_string(rt.api(), err));
+        }
+        if args.topology.is_null() {
+            return Err("PJRT_TopologyDescription_Deserialize returned null topology".to_string());
+        }
+
+        Ok(Self::new(rt, args.topology))
     }
 }
 
@@ -396,7 +450,11 @@ impl Drop for PJRTTopologyDescription<'_> {
     }
 }
 
-fn bytes_to_string(ptr: *const i8, size: usize, field_name: &str) -> Result<String, String> {
+fn bytes_to_string(
+    ptr: *const libc::c_char,
+    size: usize,
+    field_name: &str,
+) -> Result<String, String> {
     if size == 0 {
         return Ok(String::new());
     }
@@ -427,11 +485,15 @@ fn decode_named_values(
     let values = unsafe { from_raw_parts(attrs, num_attrs) };
     let mut out = Vec::with_capacity(values.len());
     for value in values {
-        if value.name.is_null() {
+        if value.name.is_null() && value.name_size != 0 {
             return Err("NamedValue name pointer is null".to_string());
         }
         let name = {
-            let name_bytes = unsafe { from_raw_parts(value.name as *const u8, value.name_size) };
+            let name_bytes = if value.name_size == 0 {
+                &[][..]
+            } else {
+                unsafe { from_raw_parts(value.name as *const u8, value.name_size) }
+            };
             String::from_utf8_lossy(name_bytes).into_owned()
         };
 

@@ -9,3 +9,4 @@ pub mod topology_desc;
 pub mod memory;
 pub mod error;
 pub mod host_to_device_manager;
+pub mod copy_to_device_stream;

@@ -10,8 +10,8 @@ use crate::pjrt::topology_desc::PJRTNamedAttribute;
 use crate::pjrt_sys::*;
 
 pub struct PJRTBuffer<'a> {
-    rt: &'a PjrtRuntime,
-    raw: *mut PJRT_Buffer,
+    pub rt: &'a PjrtRuntime,
+    pub raw: *mut PJRT_Buffer,
 }
 
 impl<'a> PJRTBuffer<'a> {
@@ -359,6 +359,54 @@ impl<'a> PJRTBuffer<'a> {
             return Err("PJRT_Buffer_ToHostBuffer returned null completion event".to_string());
         }
         Ok(PJRTEvent::new(self.rt, args.event))
+    }
+
+    pub fn unsafe_pointer(&self) -> Result<usize, String> {
+        let raw = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_UnsafePointer
+            .ok_or("PJRT_Buffer_UnsafePointer symbol not found")?;
+
+        let mut args = PJRT_Buffer_UnsafePointer_Args {
+            struct_size: PJRT_Buffer_UnsafePointer_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            buffer: raw,
+            buffer_pointer: 0,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if err.is_null() {
+            Ok(args.buffer_pointer)
+        } else {
+            Err(error_to_string(self.rt.api(), err))
+        }
+    }
+
+    pub fn opaque_device_memory_data_pointer(&self) -> Result<Option<*mut libc::c_void>, String> {
+        let raw = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_OpaqueDeviceMemoryDataPointer
+            .ok_or("PJRT_Buffer_OpaqueDeviceMemoryDataPointer symbol not found")?;
+
+        let mut args = PJRT_Buffer_OpaqueDeviceMemoryDataPointer_Args {
+            struct_size: PJRT_Buffer_OpaqueDeviceMemoryDataPointer_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            buffer: raw,
+            device_memory_ptr: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if err.is_null() {
+            Ok((!args.device_memory_ptr.is_null()).then_some(args.device_memory_ptr))
+        } else {
+            Err(error_to_string(self.rt.api(), err))
+        }
     }
 
     pub fn to_host_buffer_blocking(&self, dst: &mut [u8]) -> Result<(), String> {

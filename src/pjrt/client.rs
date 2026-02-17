@@ -416,6 +416,111 @@ impl<'a> PJRTClient<'a> {
         }
     }
 
+    pub fn create_uninitialized_buffer(&self, element_type: PJRT_Buffer_Type) -> Result<PJRTBuffer<'a>, String> {
+        let client = self.raw_checked()?;
+
+        let funct = self
+            .rt
+            .api()
+            .PJRT_Client_CreateUninitializedBuffer
+            .ok_or("PJRT_Client_CreateUninitializedBuffer symbol not found")?;
+
+        let mut args = PJRT_Client_CreateUninitializedBuffer_Args {
+            struct_size: PJRT_Client_CreateUninitializedBuffer_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            client,
+            shape_dims: null_mut(),
+            shape_num_dims: 0,
+            shape_element_type: element_type,
+            shape_layout: null_mut(),
+            device: null_mut(),
+            memory: null_mut(),
+            buffer: null_mut(),
+        };
+
+        let err = unsafe {
+            funct(&mut args)
+        };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err))
+        } else {
+            Ok(PJRTBuffer {
+                rt: self.rt,
+                raw: args.buffer,
+            })
+        }
+    }
+
+    pub fn create_view_of_device_buffer(
+        &self,
+        device_buffer_ptr: *mut c_void,
+        dims: &[i64],
+        element_type: PJRT_Buffer_Type,
+        device: Option<*mut PJRT_Device>,
+        memory: Option<*mut PJRT_Memory>,
+        layout: Option<*mut PJRT_Buffer_MemoryLayout>,
+        stream: isize,
+        on_delete_callback: Option<
+            unsafe extern "C" fn(device_buffer_ptr: *mut c_void, user_arg: *mut c_void),
+        >,
+        on_delete_callback_arg: *mut c_void,
+    ) -> Result<PJRTBuffer<'a>, String> {
+        let client = self.raw_checked()?;
+        if device_buffer_ptr.is_null() {
+            return Err("device_buffer_ptr is null".to_string());
+        }
+        if dims.is_empty() {
+            return Err("dims must not be empty".to_string());
+        }
+
+        let funct = self
+            .rt
+            .api()
+            .PJRT_Client_CreateViewOfDeviceBuffer
+            .ok_or("PJRT_Client_CreateViewOfDeviceBuffer symbol not found")?;
+
+        let device = match device {
+            Some(d) => d,
+            None => self
+                .devices()?
+                .into_iter()
+                .next()
+                .ok_or("PJRT_Client has no devices")?,
+        };
+        if device.is_null() {
+            return Err("create_view_of_device_buffer device is null".to_string());
+        }
+
+        let mut args = PJRT_Client_CreateViewOfDeviceBuffer_Args {
+            struct_size: PJRT_Client_CreateViewOfDeviceBuffer_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            client,
+            device_buffer_ptr,
+            dims: dims.as_ptr(),
+            num_dims: dims.len(),
+            element_type,
+            layout: layout.unwrap_or(null_mut()),
+            device,
+            on_delete_callback,
+            on_delete_callback_arg,
+            stream,
+            buffer: null_mut(),
+            memory: memory.unwrap_or(null_mut()),
+        };
+
+        let err = unsafe { funct(&mut args) };
+
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.buffer.is_null() {
+            return Err("PJRT_Client_CreateViewOfDeviceBuffer returned null buffer".to_string());
+        }
+
+        Ok(PJRTBuffer::new(self.rt, args.buffer))
+    }
+
     pub fn buffer_from_host_buffer(
         &self,
         data: *const c_void,

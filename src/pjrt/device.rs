@@ -58,24 +58,24 @@ impl Drop for PJRTAsyncTrackingEvent<'_> {
 }
 
 pub struct PJRTDevice<'a> {
-    rt: &'a PjrtRuntime,
-    raw_device: *mut PJRT_Device,
+    pub rt: &'a PjrtRuntime,
+    pub raw: *mut PJRT_Device,
 }
 
 impl<'a> PJRTDevice<'a> {
     pub fn new(rt: &'a PjrtRuntime, raw_device: *mut PJRT_Device) -> Self {
-        Self { rt, raw_device }
+        Self { rt, raw: raw_device }
     }
 
     pub fn raw(&self) -> *mut PJRT_Device {
-        self.raw_device
+        self.raw
     }
 
     fn raw_checked(&self) -> Result<*mut PJRT_Device, String> {
-        if self.raw_device.is_null() {
+        if self.raw.is_null() {
             Err("PJRT_Device is null".to_string())
         } else {
-            Ok(self.raw_device)
+            Ok(self.raw)
         }
     }
 

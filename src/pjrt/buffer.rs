@@ -583,6 +583,50 @@ impl<'a> PJRTBuffer<'a> {
         event.ok()
     }
 
+    pub fn copy_raw_to_host_future(
+        &self,
+        offset: i64,
+        transfer_size: i64,
+        callback_data: *mut libc::c_void,
+        future_ready_callback: Option<
+            unsafe extern "C" fn(args: *mut PJRT_Buffer_CopyRawToHostFuture_Callback_Args),
+        >,
+    ) -> Result<PJRTEvent<'a>, String> {
+        let raw = self.raw_checked()?;
+        if offset < 0 {
+            return Err("offset must be >= 0".to_string());
+        }
+        if transfer_size < 0 {
+            return Err("transfer_size must be >= 0".to_string());
+        }
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_CopyRawToHostFuture
+            .ok_or("PJRT_Buffer_CopyRawToHostFuture symbol not found")?;
+
+        let mut args = PJRT_Buffer_CopyRawToHostFuture_Args {
+            struct_size: PJRT_Buffer_CopyRawToHostFuture_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            buffer: raw,
+            offset,
+            transfer_size,
+            event: ptr::null_mut(),
+            callback_data,
+            future_ready_callback,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.event.is_null() {
+            return Err("PJRT_Buffer_CopyRawToHostFuture returned null event".to_string());
+        }
+        Ok(PJRTEvent::new(self.rt, args.event))
+    }
+
     pub fn is_on_cpu(&self) -> Result<bool, String> {
         let raw = self.raw_checked()?;
 

@@ -78,7 +78,7 @@ fn cpu_runtime_smoke() -> Result<(), String> {
         "expected f32 element type"
     );
     assert!(
-        buffer.on_device_size_in_bytes()? >= host.len() * std::mem::size_of::<f32>(),
+        buffer.on_device_size_in_bytes()? >= host.len() * size_of::<f32>(),
         "unexpectedly small on-device size"
     );
 

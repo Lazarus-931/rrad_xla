@@ -5,6 +5,7 @@ use std::slice::from_raw_parts;
 use std::vec::Vec;
 
 use crate::pjrt::client::PJRTClient;
+use crate::pjrt::topology_desc::{PJRTNamedAttribute, PJRTNamedValue};
 use crate::pjrt_sys::*;
 
 type GetPjrtApiFn = unsafe extern "C" fn() -> *const PJRT_Api;
@@ -69,6 +70,27 @@ impl PjrtRuntime {
         }
 
         Err(error_to_string(self.api(), err))
+    }
+
+    pub fn plugin_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, String> {
+        let f = self
+            .api()
+            .PJRT_Plugin_Attributes
+            .ok_or("PJRT_Plugin_Attributes symbol not found")?;
+
+        let mut args = PJRT_Plugin_Attributes_Args {
+            struct_size: PJRT_Plugin_Attributes_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            attributes: ptr::null(),
+            num_attributes: 0,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.api(), err));
+        }
+
+        decode_named_values(args.attributes, args.num_attributes)
     }
 
     pub fn create_client(&self) -> Result<*mut PJRT_Client, String> {
@@ -168,6 +190,76 @@ impl PjrtRuntime {
         let devices = unsafe { from_raw_parts(args.devices, args.num_devices) };
         Ok(devices.to_vec())
     }
+}
+
+fn decode_named_values(
+    attrs: *const PJRT_NamedValue,
+    num_attrs: usize,
+) -> Result<Vec<PJRTNamedAttribute>, String> {
+    const NV_STRING: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kString;
+    const NV_INT64: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kInt64;
+    const NV_INT64_LIST: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kInt64List;
+    const NV_FLOAT: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kFloat;
+    const NV_BOOL: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kBool;
+
+    if num_attrs == 0 {
+        return Ok(Vec::new());
+    }
+    if attrs.is_null() {
+        return Err("NamedValue pointer is null with nonzero count".to_string());
+    }
+
+    let values = unsafe { from_raw_parts(attrs, num_attrs) };
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        if value.name.is_null() && value.name_size != 0 {
+            return Err("NamedValue name pointer is null".to_string());
+        }
+
+        let name_bytes = if value.name_size == 0 {
+            &[][..]
+        } else {
+            unsafe { from_raw_parts(value.name as *const u8, value.name_size) }
+        };
+        let name = String::from_utf8_lossy(name_bytes).into_owned();
+
+        let parsed = match value.type_ {
+            NV_STRING => {
+                let ptr = unsafe { value.__bindgen_anon_1.string_value };
+                if ptr.is_null() && value.value_size != 0 {
+                    return Err(format!("NamedValue '{name}' has null string pointer"));
+                }
+                let bytes = if value.value_size == 0 {
+                    &[][..]
+                } else {
+                    unsafe { from_raw_parts(ptr as *const u8, value.value_size) }
+                };
+                PJRTNamedValue::String(String::from_utf8_lossy(bytes).into_owned())
+            }
+            NV_INT64 => PJRTNamedValue::Int64(unsafe { value.__bindgen_anon_1.int64_value }),
+            NV_INT64_LIST => {
+                let ptr = unsafe { value.__bindgen_anon_1.int64_array_value };
+                if ptr.is_null() && value.value_size != 0 {
+                    return Err(format!("NamedValue '{name}' has null int64 list pointer"));
+                }
+                let ints = if value.value_size == 0 {
+                    Vec::new()
+                } else {
+                    unsafe { from_raw_parts(ptr, value.value_size).to_vec() }
+                };
+                PJRTNamedValue::Int64List(ints)
+            }
+            NV_FLOAT => PJRTNamedValue::Float(unsafe { value.__bindgen_anon_1.float_value }),
+            NV_BOOL => PJRTNamedValue::Bool(unsafe { value.__bindgen_anon_1.bool_value }),
+            other => return Err(format!("NamedValue '{name}' has unknown type tag {other}")),
+        };
+
+        out.push(PJRTNamedAttribute {
+            name,
+            value: parsed,
+        });
+    }
+    Ok(out)
 }
 
 pub(crate) fn error_to_string(api: &PJRT_Api, error: *mut PJRT_Error) -> String {

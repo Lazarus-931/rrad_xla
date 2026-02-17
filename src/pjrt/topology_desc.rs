@@ -20,8 +20,8 @@ pub struct PJRTNamedAttribute {
 }
 
 pub struct PJRTDeviceDescriptionRef<'a> {
-    rt: &'a PjrtRuntime,
-    raw: *mut PJRT_DeviceDescription,
+    pub rt: &'a PjrtRuntime,
+    pub raw: *mut PJRT_DeviceDescription,
 }
 
 impl<'a> PJRTDeviceDescriptionRef<'a> {
@@ -424,6 +424,64 @@ impl<'a> PJRTTopologyDescription<'a> {
         }
 
         Ok(Self::new(rt, args.topology))
+    }
+
+    pub fn compile(
+        &self,
+        client: *mut PJRT_Client,
+        program: &PJRT_Program,
+        compile_options: &[u8],
+    ) -> Result<*mut PJRT_Executable, String> {
+        let topology = self.raw_checked()?;
+        if client.is_null() {
+            return Err("PJRT_Client is null".to_string());
+        }
+
+        let mut program_local = *program;
+        if program_local.struct_size == 0 {
+            program_local.struct_size = PJRT_Program_STRUCT_SIZE as usize;
+        }
+        if program_local.code_size > 0 && program_local.code.is_null() {
+            return Err("PJRT_Program.code is null but code_size is nonzero".to_string());
+        }
+        if program_local.format_size > 0 && program_local.format.is_null() {
+            return Err("PJRT_Program.format is null but format_size is nonzero".to_string());
+        }
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Compile
+            .ok_or("PJRT_Compile symbol not found")?;
+
+        let (compile_options_ptr, compile_options_size) = if compile_options.is_empty() {
+            (ptr::null(), 0usize)
+        } else {
+            (
+                compile_options.as_ptr() as *const libc::c_char,
+                compile_options.len(),
+            )
+        };
+
+        let mut args = PJRT_Compile_Args {
+            struct_size: PJRT_Compile_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            topology,
+            program: &program_local,
+            compile_options: compile_options_ptr,
+            compile_options_size,
+            client,
+            executable: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.executable.is_null() {
+            return Err("PJRT_Compile returned null executable".to_string());
+        }
+        Ok(args.executable)
     }
 }
 

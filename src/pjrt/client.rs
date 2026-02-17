@@ -602,6 +602,203 @@ impl<'a> PJRTClient<'a> {
         Ok((buffer, event))
     }
 
+    pub fn create_alias_buffer(
+        &self,
+        shape_dims: &[i64],
+        shape_element_type: PJRT_Buffer_Type,
+        memory: Option<*mut PJRT_Memory>,
+        shape_layout: Option<*mut PJRT_Buffer_MemoryLayout>,
+    ) -> Result<(PJRTBuffer<'a>, *mut PJRT_FulfillAliasBufferCallback), String> {
+        let client = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_CreateAliasBuffer
+            .ok_or("PJRT_Client_CreateAliasBuffer symbol not found")?;
+
+        let mut args = PJRT_Client_CreateAliasBuffer_Args {
+            struct_size: PJRT_Client_CreateAliasBuffer_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            memory: memory.unwrap_or(ptr::null_mut()),
+            shape_dims: if shape_dims.is_empty() {
+                ptr::null()
+            } else {
+                shape_dims.as_ptr()
+            },
+            shape_num_dims: shape_dims.len(),
+            shape_element_type,
+            shape_layout: shape_layout.unwrap_or(ptr::null_mut()),
+            alias_buffer: ptr::null_mut(),
+            fulfill_alias_buffer_cb: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.alias_buffer.is_null() {
+            return Err("PJRT_Client_CreateAliasBuffer returned null alias_buffer".to_string());
+        }
+        if args.fulfill_alias_buffer_cb.is_null() {
+            return Err(
+                "PJRT_Client_CreateAliasBuffer returned null fulfill_alias_buffer_cb".to_string(),
+            );
+        }
+
+        Ok((
+            PJRTBuffer::new(self.rt, args.alias_buffer),
+            args.fulfill_alias_buffer_cb,
+        ))
+    }
+
+    pub fn create_error_buffer(
+        &self,
+        error_code: PJRT_Error_Code,
+        error_message: &str,
+        shape_dims: &[i64],
+        shape_element_type: PJRT_Buffer_Type,
+        memory: Option<*mut PJRT_Memory>,
+        shape_layout: Option<*mut PJRT_Buffer_MemoryLayout>,
+    ) -> Result<PJRTBuffer<'a>, String> {
+        let client = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_CreateErrorBuffer
+            .ok_or("PJRT_Client_CreateErrorBuffer symbol not found")?;
+
+        let error_message_bytes = error_message.as_bytes();
+        let mut args = PJRT_Client_CreateErrorBuffer_Args {
+            struct_size: PJRT_Client_CreateErrorBuffer_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            error_code,
+            error_message: if error_message_bytes.is_empty() {
+                ptr::null()
+            } else {
+                error_message_bytes.as_ptr() as *const libc::c_char
+            },
+            error_message_size: error_message_bytes.len(),
+            shape_dims: if shape_dims.is_empty() {
+                ptr::null()
+            } else {
+                shape_dims.as_ptr()
+            },
+            shape_num_dims: shape_dims.len(),
+            shape_element_type,
+            shape_layout: shape_layout.unwrap_or(ptr::null_mut()),
+            memory: memory.unwrap_or(ptr::null_mut()),
+            buffer: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.buffer.is_null() {
+            return Err("PJRT_Client_CreateErrorBuffer returned null buffer".to_string());
+        }
+
+        Ok(PJRTBuffer::new(self.rt, args.buffer))
+    }
+
+    pub fn update_global_process_info(
+        &self,
+        process_infos: &mut [PJRT_ProcessInfo],
+    ) -> Result<(), String> {
+        let client = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_UpdateGlobalProcessInfo
+            .ok_or("PJRT_Client_UpdateGlobalProcessInfo symbol not found")?;
+
+        for info in process_infos.iter_mut() {
+            if info.struct_size == 0 {
+                info.struct_size = PJRT_ProcessInfo_STRUCT_SIZE as usize;
+            }
+        }
+
+        let mut args = PJRT_Client_UpdateGlobalProcessInfo_Args {
+            struct_size: PJRT_Client_UpdateGlobalProcessInfo_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            process_infos: if process_infos.is_empty() {
+                ptr::null_mut()
+            } else {
+                process_infos.as_mut_ptr()
+            },
+            num_process_infos: process_infos.len(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if err.is_null() {
+            Ok(())
+        } else {
+            Err(error_to_string(self.rt.api(), err))
+        }
+    }
+
+    pub fn default_device_assignment(
+        &self,
+        num_replicas: i32,
+        num_partitions: i32,
+    ) -> Result<Vec<i32>, String> {
+        if num_replicas < 0 || num_partitions < 0 {
+            return Err("num_replicas and num_partitions must be >= 0".to_string());
+        }
+
+        let client = self.raw_checked()?;
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_DefaultDeviceAssignment
+            .ok_or("PJRT_Client_DefaultDeviceAssignment symbol not found")?;
+
+        let mut probe = PJRT_Client_DefaultDeviceAssignment_Args {
+            struct_size: PJRT_Client_DefaultDeviceAssignment_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            num_replicas,
+            num_partitions,
+            default_assignment_size: 0,
+            default_assignment: ptr::null_mut(),
+        };
+
+        let probe_err = unsafe { f(&mut probe) };
+        let expected_size = (num_replicas as usize).saturating_mul(num_partitions as usize);
+
+        if !probe_err.is_null() && expected_size == 0 {
+            return Err(error_to_string(self.rt.api(), probe_err));
+        }
+
+        let mut out = vec![0i32; probe.default_assignment_size.max(expected_size)];
+        if out.is_empty() {
+            return Ok(out);
+        }
+
+        let mut args = PJRT_Client_DefaultDeviceAssignment_Args {
+            struct_size: PJRT_Client_DefaultDeviceAssignment_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            num_replicas,
+            num_partitions,
+            default_assignment_size: out.len(),
+            default_assignment: out.as_mut_ptr(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        out.truncate(args.default_assignment_size.min(out.len()));
+        Ok(out)
+    }
+
     pub fn buffer_from_host_slice_copy<T: Copy>(
         &self,
         data: &[T],

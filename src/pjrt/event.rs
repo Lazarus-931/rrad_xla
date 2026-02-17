@@ -25,6 +25,33 @@ impl<'a> PJRTEvent<'a> {
         raw
     }
 
+    pub fn create(rt: &'a PjrtRuntime) -> Result<PJRTEvent<'a>, String> {
+        let f = rt
+            .api()
+            .PJRT_Event_Create
+            .ok_or("PJRT_Event_Create symbol not found")?;
+
+        let mut args = PJRT_Event_Create_Args {
+            struct_size: PJRT_Event_Create_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            event: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+
+        if !err.is_null() {
+            return Err(error_to_string(rt.api(), err));
+        }
+        if args.event.is_null() {
+            return Err("PJRT_Event_Create returned null event".to_string());
+        }
+
+        Ok(PJRTEvent {
+            rt,
+            raw: args.event,
+        })
+    }
+
     fn raw_checked(&self) -> Result<*mut PJRT_Event, String> {
         if self.raw.is_null() {
             Err("PJRT_Event is null".to_string())

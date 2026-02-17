@@ -3,6 +3,7 @@ pub mod client;
 pub mod compile;
 pub mod device;
 pub mod event;
+pub mod execute_context;
 pub mod executable;
 pub mod loader;
 pub mod topology_desc;

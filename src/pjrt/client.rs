@@ -2,6 +2,7 @@ use crate::pjrt::buffer::PJRTBuffer;
 use crate::pjrt::compile::PJRTCompiler;
 use crate::pjrt::event::PJRTEvent;
 use crate::pjrt::executable::PJRTLoadedExecutable;
+use crate::pjrt::host_to_device_manager::PjrtHtoDeviceManager;
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt::memory::PJRTMemory;
 use crate::pjrt::topology_desc::{PJRTNamedAttribute, PJRTTopologyDescription};
@@ -9,7 +10,6 @@ use crate::pjrt_sys::*;
 use std::ffi::c_void;
 use std::ptr;
 use std::ptr::null_mut;
-use std::slice::from_raw_parts;
 //raii wrapper for PJRT_Client
 
 pub struct PJRTClient<'a> {
@@ -296,8 +296,9 @@ impl<'a> PJRTClient<'a> {
             );
         }
 
-        let memories =
-            unsafe { std::slice::from_raw_parts(args.addressable_memories, args.num_addressable_memories) };
+        let memories = unsafe {
+            std::slice::from_raw_parts(args.addressable_memories, args.num_addressable_memories)
+        };
         Ok(memories.to_vec())
     }
 
@@ -309,87 +310,104 @@ impl<'a> PJRTClient<'a> {
             .collect())
     }
 
-    pub fn create_buffers_for_async_host_to_device(&self) -> Result<Vec<PJRTBuffer<'a>>, String> {
+    pub fn create_buffers_for_async_host_to_device(
+        &self,
+        shape_specs: &mut [PJRT_ShapeSpec],
+        device_layouts: &mut [*mut PJRT_Buffer_MemoryLayout],
+        memory: Option<*mut PJRT_Memory>,
+    ) -> Result<PjrtHtoDeviceManager<'a>, String> {
         let client = self.raw_checked()?;
 
-        let function = self.rt
-            .api().PJRT_Client_CreateBuffersForAsyncHostToDevice
+        let function = self
+            .rt
+            .api()
+            .PJRT_Client_CreateBuffersForAsyncHostToDevice
             .ok_or("PJRT_Client_CreateBuffersForAsyncHostToDevice symbol not found")?;
 
         let mut args = PJRT_Client_CreateBuffersForAsyncHostToDevice_Args {
             struct_size: PJRT_Client_CreateBuffersForAsyncHostToDevice_Args_STRUCT_SIZE as usize,
             extension_start: null_mut(),
-            client: null_mut(),
-            shape_specs: null_mut(),
-            num_shape_specs: 0,
-            device_layouts: null_mut(),
-            num_device_layouts: 0,
-            memory: null_mut(),
-            transfer_manager: null_mut()
+            client,
+            shape_specs: if shape_specs.is_empty() {
+                ptr::null_mut()
+            } else {
+                shape_specs.as_mut_ptr()
+            },
+            num_shape_specs: shape_specs.len(),
+            device_layouts: if device_layouts.is_empty() {
+                ptr::null_mut()
+            } else {
+                device_layouts.as_mut_ptr()
+            },
+            num_device_layouts: device_layouts.len(),
+            memory: memory.unwrap_or(ptr::null_mut()),
+            transfer_manager: ptr::null_mut(),
         };
 
-        let err = unsafe {
-            function(&mut args)
-        };
+        let err = unsafe { function(&mut args) };
 
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
-        } else if args.num_device_layouts == 0 {
-            Ok(Vec::new())
-        } else {
-            let bytes = unsafe {
-                from_raw_parts(args.device_layouts, args.num_device_layouts)
-            };
-
-            todo!()
-
+            return Err(error_to_string(self.rt.api(), err));
         }
+        if args.transfer_manager.is_null() {
+            return Err(
+                "PJRT_Client_CreateBuffersForAsyncHostToDevice returned null transfer_manager"
+                    .to_string(),
+            );
+        }
+
+        Ok(PjrtHtoDeviceManager::new(self.rt, args.transfer_manager))
     }
 
-    pub fn dma_map(&self) -> Result<(), String> {
+    pub fn dma_map(&self, data: *mut c_void, size: usize) -> Result<(), String> {
         let client = self.raw_checked()?;
+        if size > 0 && data.is_null() {
+            return Err("dma_map data pointer is null but size is nonzero".to_string());
+        }
 
-        let funct = self.rt
-            .api().PJRT_Client_DmaMap
+        let funct = self
+            .rt
+            .api()
+            .PJRT_Client_DmaMap
             .ok_or("PJRT_Client_DmaMap symbol not found")?;
 
         let mut args = PJRT_Client_DmaMap_Args {
             struct_size: PJRT_Client_DmaMap_Args_STRUCT_SIZE as usize,
             extension_start: null_mut(),
-            client: null_mut(),
-            data: null_mut(),
-            size: 0,
+            client,
+            data,
+            size,
         };
 
-        let err = unsafe {
-            funct(&mut args)
-        };
+        let err = unsafe { funct(&mut args) };
 
         if !err.is_null() {
             Err(error_to_string(self.rt.api(), err))
         } else {
             Ok(())
         }
-
     }
 
-    pub fn dma_unmap(&self) -> Result<(), String> {
+    pub fn dma_unmap(&self, data: *mut c_void) -> Result<(), String> {
         let client = self.raw_checked()?;
+        if data.is_null() {
+            return Err("dma_unmap data pointer is null".to_string());
+        }
 
-        let func = self.rt
-            .api().PJRT_Client_DmaUnmap
+        let func = self
+            .rt
+            .api()
+            .PJRT_Client_DmaUnmap
             .ok_or("PJRT_Client_DmaUnmap symbol not found")?;
 
         let mut args = PJRT_Client_DmaUnmap_Args {
-            struct_size: PJRT_Client_DmaMap_Args_STRUCT_SIZE as usize,
+            struct_size: PJRT_Client_DmaUnmap_Args_STRUCT_SIZE as usize,
             extension_start: null_mut(),
-            client: null_mut(),
-            data: null_mut(),
+            client,
+            data,
         };
 
-        let err = unsafe {
-            func(&mut args)
-        };
+        let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
             Err(error_to_string(self.rt.api(), err))

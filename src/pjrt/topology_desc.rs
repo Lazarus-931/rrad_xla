@@ -1,4 +1,5 @@
 use std::ptr;
+use std::ptr::null_mut;
 use std::slice::from_raw_parts;
 
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
@@ -186,6 +187,32 @@ impl<'a> PJRTTopologyDescription<'a> {
 
     pub fn raw(&self) -> *mut PJRT_TopologyDescription {
         self.raw
+    }
+
+    pub fn create(&self) -> Result<(), String> {
+        let function = self.rt.api()
+            .PJRT_TopologyDescription_Create
+            .ok_or("PJRT_TopologyDescription_Create symbol not found")?;
+
+        let mut args = PJRT_TopologyDescription_Create_Args {
+            struct_size: PJRT_TopologyDescription_Create_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            topology_name: ptr::null(),
+            topology_name_size: 0,
+            create_options: ptr::null(),
+            num_options: 0,
+            topology: ptr::null_mut(),
+        };
+
+        let err = unsafe {
+            function(&mut args)
+        };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err).to_string())
+        } else {
+            Ok(())
+        }
     }
 
     fn raw_checked(&self) -> Result<*mut PJRT_TopologyDescription, String> {

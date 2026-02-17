@@ -3,11 +3,13 @@ use crate::pjrt::compile::PJRTCompiler;
 use crate::pjrt::event::PJRTEvent;
 use crate::pjrt::executable::PJRTLoadedExecutable;
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::pjrt::memory::PJRTMemory;
 use crate::pjrt::topology_desc::{PJRTNamedAttribute, PJRTTopologyDescription};
 use crate::pjrt_sys::*;
 use std::ffi::c_void;
 use std::ptr;
-
+use std::ptr::null_mut;
+use std::slice::from_raw_parts;
 //raii wrapper for PJRT_Client
 
 pub struct PJRTClient<'a> {
@@ -125,6 +127,275 @@ impl<'a> PJRTClient<'a> {
 
     pub fn topology_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, String> {
         self.topology_description()?.attributes()
+    }
+
+    pub fn fulfill_alias_buffer(
+        &self,
+        fulfill_alias_buffer_cb: *mut PJRT_FulfillAliasBufferCallback,
+        buffer: Option<*mut PJRT_Buffer>,
+        status_code: PJRT_Error_Code,
+        error_message: Option<&str>,
+    ) -> Result<(), String> {
+        let client = self.raw_checked()?;
+
+        if fulfill_alias_buffer_cb.is_null() {
+            return Err("fulfill_alias_buffer_cb is null".to_string());
+        }
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_FulfillAliasBuffer
+            .ok_or("PJRT_Client_FulfillAliasBuffer symbol not found")?;
+
+        let raw_buffer = buffer.unwrap_or(ptr::null_mut());
+        if status_code == PJRT_Error_Code_PJRT_Error_Code_OK && raw_buffer.is_null() {
+            return Err(
+                "buffer must be non-null when status_code is PJRT_Error_Code_OK".to_string(),
+            );
+        }
+
+        let error_message_bytes = if status_code == PJRT_Error_Code_PJRT_Error_Code_OK {
+            &[][..]
+        } else {
+            error_message.map(str::as_bytes).unwrap_or(&[])
+        };
+
+        let mut args = PJRT_Client_FulfillAliasBuffer_Args {
+            struct_size: PJRT_Client_FulfillAliasBuffer_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            buffer: raw_buffer,
+            status_code,
+            error_message: if error_message_bytes.is_empty() {
+                ptr::null()
+            } else {
+                error_message_bytes.as_ptr() as *const libc::c_char
+            },
+            error_message_size: error_message_bytes.len(),
+            fulfill_alias_buffer_cb,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if err.is_null() {
+            Ok(())
+        } else {
+            Err(error_to_string(self.rt.api(), err))
+        }
+    }
+
+    pub fn process_index(&self) -> Result<i32, String> {
+        let client = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_ProcessIndex
+            .ok_or("PJRT_Client_ProcessIndex symbol not found")?;
+
+        let mut args = PJRT_Client_ProcessIndex_Args {
+            struct_size: PJRT_Client_ProcessIndex_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            process_index: 0,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if err.is_null() {
+            Ok(args.process_index)
+        } else {
+            Err(error_to_string(self.rt.api(), err))
+        }
+    }
+
+    pub fn lookup_device(&self, id: i32) -> Result<*mut PJRT_Device, String> {
+        let client = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_LookupDevice
+            .ok_or("PJRT_Client_LookupDevice symbol not found")?;
+
+        let mut args = PJRT_Client_LookupDevice_Args {
+            struct_size: PJRT_Client_LookupDevice_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            id,
+            device: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.device.is_null() {
+            return Err("PJRT_Client_LookupDevice returned null device".to_string());
+        }
+        Ok(args.device)
+    }
+
+    pub fn lookup_addressable_device(
+        &self,
+        local_hardware_id: i32,
+    ) -> Result<*mut PJRT_Device, String> {
+        let client = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_LookupAddressableDevice
+            .ok_or("PJRT_Client_LookupAddressableDevice symbol not found")?;
+
+        let mut args = PJRT_Client_LookupAddressableDevice_Args {
+            struct_size: PJRT_Client_LookupAddressableDevice_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            local_hardware_id,
+            addressable_device: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.addressable_device.is_null() {
+            return Err("PJRT_Client_LookupAddressableDevice returned null device".to_string());
+        }
+        Ok(args.addressable_device)
+    }
+
+    pub fn addressable_memories(&self) -> Result<Vec<*mut PJRT_Memory>, String> {
+        let client = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Client_AddressableMemories
+            .ok_or("PJRT_Client_AddressableMemories symbol not found")?;
+
+        let mut args = PJRT_Client_AddressableMemories_Args {
+            struct_size: PJRT_Client_AddressableMemories_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            addressable_memories: ptr::null(),
+            num_addressable_memories: 0,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.num_addressable_memories == 0 {
+            return Ok(Vec::new());
+        }
+        if args.addressable_memories.is_null() {
+            return Err(
+                "PJRT_Client_AddressableMemories returned null memories with nonzero count"
+                    .to_string(),
+            );
+        }
+
+        let memories =
+            unsafe { std::slice::from_raw_parts(args.addressable_memories, args.num_addressable_memories) };
+        Ok(memories.to_vec())
+    }
+
+    pub fn addressable_memory_refs(&self) -> Result<Vec<PJRTMemory<'a>>, String> {
+        Ok(self
+            .addressable_memories()?
+            .into_iter()
+            .map(|raw| PJRTMemory::new(self.rt, raw))
+            .collect())
+    }
+
+    pub fn create_buffers_for_async_host_to_device(&self) -> Result<Vec<PJRTBuffer<'a>>, String> {
+        let client = self.raw_checked()?;
+
+        let function = self.rt
+            .api().PJRT_Client_CreateBuffersForAsyncHostToDevice
+            .ok_or("PJRT_Client_CreateBuffersForAsyncHostToDevice symbol not found")?;
+
+        let mut args = PJRT_Client_CreateBuffersForAsyncHostToDevice_Args {
+            struct_size: PJRT_Client_CreateBuffersForAsyncHostToDevice_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            client: null_mut(),
+            shape_specs: null_mut(),
+            num_shape_specs: 0,
+            device_layouts: null_mut(),
+            num_device_layouts: 0,
+            memory: null_mut(),
+            transfer_manager: null_mut()
+        };
+
+        let err = unsafe {
+            function(&mut args)
+        };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err))
+        } else if args.num_device_layouts == 0 {
+            Ok(Vec::new())
+        } else {
+            let bytes = unsafe {
+                from_raw_parts(args.device_layouts, args.num_device_layouts)
+            };
+
+            todo!()
+
+        }
+    }
+
+    pub fn dma_map(&self) -> Result<(), String> {
+        let client = self.raw_checked()?;
+
+        let funct = self.rt
+            .api().PJRT_Client_DmaMap
+            .ok_or("PJRT_Client_DmaMap symbol not found")?;
+
+        let mut args = PJRT_Client_DmaMap_Args {
+            struct_size: PJRT_Client_DmaMap_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            client: null_mut(),
+            data: null_mut(),
+            size: 0,
+        };
+
+        let err = unsafe {
+            funct(&mut args)
+        };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err))
+        } else {
+            Ok(())
+        }
+
+    }
+
+    pub fn dma_unmap(&self) -> Result<(), String> {
+        let client = self.raw_checked()?;
+
+        let func = self.rt
+            .api().PJRT_Client_DmaUnmap
+            .ok_or("PJRT_Client_DmaUnmap symbol not found")?;
+
+        let mut args = PJRT_Client_DmaUnmap_Args {
+            struct_size: PJRT_Client_DmaMap_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            client: null_mut(),
+            data: null_mut(),
+        };
+
+        let err = unsafe {
+            func(&mut args)
+        };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err))
+        } else {
+            Ok(())
+        }
     }
 
     pub fn buffer_from_host_buffer(

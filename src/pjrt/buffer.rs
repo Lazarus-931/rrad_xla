@@ -408,6 +408,99 @@ impl<'a> PJRTBuffer<'a> {
         Ok(PJRTEvent::new(self.rt, args.event))
     }
 
+    pub fn copy_to_device(&self, device: &PJRTDevice) -> Result<*mut PJRT_Buffer, String> {
+        let raw = self.raw_checked()?;
+        let dst_device = device.raw();
+        if dst_device.is_null() {
+            return Err("copy_to_device: destination device is null".to_string());
+        }
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_CopyToDevice
+            .ok_or("PJRT_Buffer_CopyToDevice symbol not found")?;
+
+        let mut args = PJRT_Buffer_CopyToDevice_Args {
+            struct_size: PJRT_Buffer_CopyToDevice_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            buffer: raw,
+            dst_device,
+            dst_buffer: null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err))
+        } else if args.dst_buffer.is_null() {
+            Err("PJRT_Buffer_CopyToDevice returned null dst_buffer".to_string())
+        } else {
+            Ok(args.dst_buffer)
+        }
+    }
+
+    pub fn donate_with_control_dependency(
+        &self,
+        dependency: &PJRTEvent<'a>,
+    ) -> Result<PJRTBuffer<'a>, String> {
+        let raw = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_DonateWithControlDependency
+            .ok_or("PJRT_Buffer_DonateWithControlDependency symbol not found")?;
+
+        let mut args = PJRT_Buffer_DonateWithControlDependency_Args {
+            struct_size: PJRT_Buffer_DonateWithControlDependency_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            buffer: raw,
+            callback_data: ptr::null_mut(),
+            dependency_ready_callback: None,
+            out_buffer: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+
+        let callback = args.dependency_ready_callback.ok_or(
+            "PJRT_Buffer_DonateWithControlDependency returned null dependency_ready_callback",
+        )?;
+        if args.out_buffer.is_null() {
+            return Err(
+                "PJRT_Buffer_DonateWithControlDependency returned null out_buffer".to_string(),
+            );
+        }
+
+        let dependency_status = dependency.ok();
+        let callback_message = match &dependency_status {
+            Ok(()) => Vec::<u8>::new(),
+            Err(message) => message.as_bytes().to_vec(),
+        };
+        let mut callback_args = PJRT_Buffer_DonateWithControlDependency_Callback_Args {
+            struct_size: PJRT_Buffer_DonateWithControlDependency_Callback_Args_STRUCT_SIZE as usize,
+            callback_data: args.callback_data,
+            error_code: if dependency_status.is_ok() {
+                PJRT_Error_Code_PJRT_Error_Code_OK
+            } else {
+                PJRT_Error_Code_PJRT_Error_Code_UNKNOWN
+            },
+            error_message: if callback_message.is_empty() {
+                ptr::null()
+            } else {
+                callback_message.as_ptr() as *const libc::c_char
+            },
+            error_message_size: callback_message.len(),
+        };
+        unsafe { callback(&mut callback_args) };
+
+        dependency_status?;
+        Ok(PJRTBuffer::new(self.rt, args.out_buffer))
+    }
+
     pub fn copy_to_memory(&self, dst_memory: *mut PJRT_Memory) -> Result<*mut PJRT_Buffer, String> {
         let raw = self.raw_checked()?;
         if dst_memory.is_null() {
@@ -440,6 +533,103 @@ impl<'a> PJRTBuffer<'a> {
     pub fn copy_raw_to_host_blocking(&self, dst: &mut [u8], offset: i64) -> Result<(), String> {
         let event = self.copy_raw_to_host_async(dst, offset)?;
         event.ok()
+    }
+
+    pub fn is_on_cpu(&self) -> Result<bool, String> {
+        let raw = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_IsOnCpu
+            .ok_or("PJRT_Buffer_IsOnCpu symbol not found")?;
+
+        let mut args = PJRT_Buffer_IsOnCpu_Args {
+            struct_size: PJRT_Buffer_IsOnCpu_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            buffer: raw,
+            is_on_cpu: false,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if err.is_null() {
+            Ok(args.is_on_cpu)
+        } else {
+            Err(error_to_string(self.rt.api(), err))
+        }
+    }
+
+    pub fn memory(&self) -> Result<*mut PJRT_Memory, String> {
+        let raw = self.raw_checked()?;
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Buffer_Memory
+            .ok_or("PJRT_Buffer_Memory symbol not found")?;
+
+        let mut args = PJRT_Buffer_Memory_Args {
+            struct_size: PJRT_Buffer_Memory_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            buffer: raw,
+            memory: ptr::null_mut(),
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.memory.is_null() {
+            return Err("PJRT_Buffer_Memory returned null memory".to_string());
+        }
+
+        Ok(args.memory)
+    }
+
+    pub fn increase_external_ref(&self) -> Result<(), String> {
+        let raw = self.raw_checked()?;
+
+        let func = self
+            .rt
+            .api()
+            .PJRT_Buffer_IncreaseExternalReferenceCount
+            .ok_or("PJRT_Buffer_IncreaseExternalReferenceCount symbol not found")?;
+
+        let mut args = PJRT_Buffer_IncreaseExternalReferenceCount_Args {
+            struct_size: PJRT_Buffer_IncreaseExternalReferenceCount_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            buffer: raw,
+        };
+
+        let err = unsafe { func(&mut args) };
+        if err.is_null() {
+            Ok(())
+        } else {
+            Err(error_to_string(self.rt.api(), err))
+        }
+    }
+
+    pub fn decrease_external_ref(&self) -> Result<(), String> {
+        let raw = self.raw_checked()?;
+
+        let func = self
+            .rt
+            .api()
+            .PJRT_Buffer_DecreaseExternalReferenceCount
+            .ok_or("PJRT_Buffer_DecreaseExternalReferenceCount symbol not found")?;
+
+        let mut args = PJRT_Buffer_DecreaseExternalReferenceCount_Args {
+            struct_size: PJRT_Buffer_DecreaseExternalReferenceCount_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            buffer: raw,
+        };
+
+        let err = unsafe { func(&mut args) };
+        if err.is_null() {
+            Ok(())
+        } else {
+            Err(error_to_string(self.rt.api(), err))
+        }
     }
 }
 

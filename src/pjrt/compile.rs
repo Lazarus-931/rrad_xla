@@ -1,3 +1,5 @@
+use std::ptr::null_mut;
+use crate::pjrt::device::PJRTDevice;
 use crate::pjrt::executable::PJRTLoadedExecutable;
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
@@ -113,5 +115,43 @@ impl<'a> PJRTCompiler<'a> {
         program.format = format.as_ptr() as *const libc::c_char;
         program.format_size = format.len();
         self.compile_program(program, compile_options)
+    }
+
+
+    pub fn addressable_devices(&self) -> Result<Vec<PJRTDevice<'a>>, String> {
+        let raw = self.raw_checked()?;
+
+        let f = self.rt
+            .api().PJRT_Client_AddressableDevices
+            .ok_or("PJRT_Client_AddressableDevices symbol not found")?;
+
+        let mut args = PJRT_Client_AddressableDevices_Args {
+            struct_size: PJRT_Client_AddressableDevices_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            client: raw,
+            addressable_devices: std::ptr::null(),
+            num_addressable_devices: 0
+        };
+
+        let err = unsafe {
+            f(&mut args)
+        };
+
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err))
+        } else if args.num_addressable_devices == 0 {
+            Ok(Vec::new())
+        } else if args.addressable_devices.is_null() {
+            Err(
+                "PJRT_Client_AddressableDevices returned null devices with nonzero count"
+                    .to_string(),
+            )
+        } else {
+            let bytes = unsafe { std::slice::from_raw_parts(args.addressable_devices, args.num_addressable_devices) };
+            let devices = bytes.iter().map(|raw_device| PJRTDevice::new(self.rt, *raw_device)).collect();
+            Ok(devices)
+        }
+        
     }
 }

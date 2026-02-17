@@ -1,8 +1,9 @@
 use std::mem;
 use std::ptr;
-
+use std::ptr::null_mut;
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
+use crate::pjrt::error::PJRTError;
 
 pub struct PJRTEvent<'a> {
     rt: &'a PjrtRuntime,
@@ -55,6 +56,67 @@ impl<'a> PJRTEvent<'a> {
             Err(error_to_string(self.rt.api(), err))
         }
     }
+
+    pub fn on_ready(
+        &self,
+        callback: PJRT_Event_OnReadyCallback,
+        user_arg: *mut libc::c_void,
+    ) -> Result<(), String> {
+        let raw = self.raw_checked()?;
+        if callback.is_none() {
+            return Err("PJRT_Event_OnReady callback must be provided".to_string());
+        }
+
+        let func = self.rt
+            .api().PJRT_Event_OnReady
+            .ok_or("PJRT_Event_OnReady symbol not found")?;
+
+        let mut args = PJRT_Event_OnReady_Args {
+            struct_size: PJRT_Event_OnReady_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            event: raw,
+            callback,
+            user_arg,
+        };
+        let err = unsafe {
+            func(&mut args)
+        };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err).to_string())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn set(&self, error: &PJRTError) -> Result<(), String> {
+        let raw = self.raw_checked()?;
+
+        let func = self.rt
+            .api().PJRT_Event_Set
+            .ok_or("PJRT_Event_Set symbol not found")?;
+
+        let mut args =  PJRT_Event_Set_Args {
+            struct_size: PJRT_Event_Set_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            event: raw,
+            error_code: error.get_code()?,
+            error_message: ptr::null(),
+            error_message_size: 0,
+        };
+
+        let err = unsafe {
+            func(&mut args)
+        };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err).to_string())
+        } else {
+            Ok(())
+        }
+    }
+
+
 
     pub fn await_ready(&self) -> Result<(), String> {
         let raw = self.raw_checked()?;

@@ -4,6 +4,7 @@ use crate::pjrt::event::PJRTEvent;
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
 use std::ptr;
+use std::ptr::{null, null_mut};
 use std::slice::from_raw_parts;
 
 pub struct PJRTLoadedExecutable<'a> {
@@ -623,6 +624,166 @@ impl<'a> PJRTLoadedExecutable<'a> {
             unsafe { from_raw_parts(args.executable_name as *const u8, args.executable_name_size) };
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
+
+    pub fn get_compiled_memory_stats(&self) -> Result<Vec<i64>, String> {
+        let exec = self.executable()?;
+
+        let func = self.rt
+            .api().PJRT_Executable_GetCompiledMemoryStats
+            .ok_or("PJRT_Executable_GetCompiledMemoryStats symbol not found")?;
+
+
+        let mut args = PJRT_Executable_GetCompiledMemoryStats_Args {
+            struct_size: PJRT_Executable_GetCompiledMemoryStats_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            executable: exec,
+            generated_code_size_in_bytes: 0,
+            argument_size_in_bytes: 0,
+            output_size_in_bytes: 0,
+            alias_size_in_bytes: 0,
+            temp_size_in_bytes: 0,
+            host_generated_code_size_in_bytes: 0,
+            host_argument_size_in_bytes: 0,
+            host_output_size_in_bytes: 0,
+            host_alias_size_in_bytes: 0,
+            host_temp_size_in_bytes: 0,
+            peak_memory_in_bytes: 0,
+            total_size_in_bytes: 0,
+        };
+
+        let err = unsafe { func(&mut args) };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err))
+        } else {
+            let stats = vec![
+                args.generated_code_size_in_bytes,
+                args.argument_size_in_bytes,
+                args.output_size_in_bytes,
+                args.alias_size_in_bytes,
+                args.temp_size_in_bytes,
+                args.host_generated_code_size_in_bytes,
+                args.host_argument_size_in_bytes,
+                args.host_output_size_in_bytes,
+                args.host_alias_size_in_bytes,
+                args.host_temp_size_in_bytes,
+                args.peak_memory_in_bytes,
+                args.total_size_in_bytes
+            ];
+
+            Ok(stats)
+        }
+    }
+
+    pub fn get_cost_analysis(&self) -> Result<String, String> {
+        let exec = self.executable()?;
+
+        let func = self.rt
+            .api().PJRT_Executable_GetCostAnalysis
+            .ok_or("PJRT_Executable_GetCostAnalysis symbol not found")?;
+
+        let mut args = PJRT_Executable_GetCostAnalysis_Args {
+            struct_size: PJRT_Executable_GetCostAnalysis_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            executable: exec,
+            num_properties: 0,
+            properties: ptr::null(),
+        };
+
+        let err = unsafe { func(&mut args) };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err))
+        } else if args.num_properties == 0 {
+            Ok(String::new())
+        } else if args.properties.is_null() {
+            Err(
+                "PJRT_Executable_GetCostAnalysis returned null properties with nonzero count"
+                    .to_string(),
+            )
+        } else {
+            let properties = unsafe { from_raw_parts(args.properties, args.num_properties) };
+            let names = properties
+                .iter()
+                .map(|property| {
+                    if property.name.is_null() {
+                        "<null>".to_string()
+                    } else {
+                        let bytes = unsafe {
+                            from_raw_parts(property.name as *const u8, property.name_size)
+                        };
+                        String::from_utf8_lossy(bytes).into_owned()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            Ok(names)
+        }
+    }
+
+
+    pub fn optimized_program(&self) -> Result<(), String> {
+        let exec = self.executable()?;
+
+        let func = self.rt
+            .api().PJRT_Executable_OptimizedProgram
+            .ok_or("PJRT_Exectuable_Optimized not found.")?;
+
+        let mut args = PJRT_Executable_OptimizedProgram_Args {
+            struct_size: PJRT_Executable_OptimizedProgram_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            executable: exec,
+            program: null_mut()
+        };
+
+        let err = unsafe {
+            func(&mut args)
+        };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err))
+        } else {
+            Ok(())
+        }
+    }
+
+
+    pub fn output_dimension(&self) -> Result<i64, String> {
+        let exec = self.executable()?;
+
+        let func = self.rt
+            .api().PJRT_Executable_OutputDimensions
+            .ok_or("PJRT_Executable_OutputDimensions not found.")?;
+
+        let mut args = PJRT_Executable_OutputDimensions_Args {
+            struct_size: PJRT_Executable_OutputDimensions_Args_STRUCT_SIZE as usize,
+            extension_start: null_mut(),
+            executable: exec,
+            num_outputs: 0,
+            dims: ptr::null(),
+            dim_sizes: null(),
+        };
+        let err = unsafe {
+            func(&mut args)
+        };
+
+        if !err.is_null() {
+            Err(error_to_string(self.rt.api(), err))
+        } else if args.num_outputs == 0 {
+            Err("PJRT_Executable_OutputDimensions returned no outputs".to_string())
+        } else if args.dims.is_null() {
+            Err("PJRT_Executable_OutputDimensions returned null dims".to_string())
+        } else {
+            let dims = unsafe { from_raw_parts(args.dims as *const i64, args.num_outputs) };
+            Ok(dims[0])
+        }
+    }
+
+
+
+
+
+
 }
 
 impl Drop for PJRTLoadedExecutable<'_> {

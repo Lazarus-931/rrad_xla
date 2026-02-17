@@ -6,3 +6,6 @@ pub mod event;
 pub mod executable;
 pub mod loader;
 pub mod topology_desc;
+pub mod memory;
+pub mod error;
+pub mod host_to_device_manager;

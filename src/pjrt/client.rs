@@ -52,6 +52,35 @@ impl<'a> PJRTClient<'a> {
             .compile(program_code, format, compile_options)
     }
 
+    pub fn compile_on_topology(
+        &self,
+        program: &PJRT_Program,
+        compile_options: &[u8],
+        overridden_compile_options: Option<&[u8]>,
+    ) -> Result<PJRTLoadedExecutable<'a>, String> {
+        let client = self.raw_checked()?;
+        let topology = self.topology_description()?;
+        topology.compile_and_load(client, program, compile_options, overridden_compile_options)
+    }
+
+    pub fn compile_on_topology_code(
+        &self,
+        program_code: &str,
+        format: &str,
+        compile_options: &[u8],
+        overridden_compile_options: Option<&[u8]>,
+    ) -> Result<PJRTLoadedExecutable<'a>, String> {
+        let client = self.raw_checked()?;
+        let topology = self.topology_description()?;
+        topology.compile_and_load_code(
+            client,
+            program_code,
+            format,
+            compile_options,
+            overridden_compile_options,
+        )
+    }
+
     pub fn topology_description(&self) -> Result<PJRTTopologyDescription<'a>, String> {
         if self.raw_client.is_null() {
             return Err("PJRT_Client is null".to_string());
@@ -416,7 +445,10 @@ impl<'a> PJRTClient<'a> {
         }
     }
 
-    pub fn create_uninitialized_buffer(&self, element_type: PJRT_Buffer_Type) -> Result<PJRTBuffer<'a>, String> {
+    pub fn create_uninitialized_buffer(
+        &self,
+        element_type: PJRT_Buffer_Type,
+    ) -> Result<PJRTBuffer<'a>, String> {
         let client = self.raw_checked()?;
 
         let funct = self
@@ -438,9 +470,7 @@ impl<'a> PJRTClient<'a> {
             buffer: null_mut(),
         };
 
-        let err = unsafe {
-            funct(&mut args)
-        };
+        let err = unsafe { funct(&mut args) };
 
         if !err.is_null() {
             Err(error_to_string(self.rt.api(), err))

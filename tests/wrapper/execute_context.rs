@@ -67,8 +67,7 @@ fn compile_and_execute_smoke() -> Result<(), String> {
         "expected topology to include at least one device description"
     );
 
-    let executable =
-        topology.compile_and_load_code(client.raw(), MODULE_ADD_ONE, "mlir", &[], None)?;
+    let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
 
     let execute_context = PJRTExecuteContext::create(&rt)?;
     let raw_devices = client.devices()?;
@@ -118,8 +117,7 @@ fn execute_with_context_fails_on_missing_args() -> Result<(), String> {
         "expected topology to include at least one device description"
     );
 
-    let executable =
-        topology.compile_and_load_code(client.raw(), MODULE_ADD_ONE, "mlir", &[], None)?;
+    let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
 
     let execute_context = PJRTExecuteContext::create(&rt)?;
     let result = executable.execute_with_context(&[], Some(&execute_context));
@@ -151,13 +149,8 @@ fn non_empty_compile_options_topology_smoke() -> Result<(), String> {
         return Ok(());
     }
 
-    let executable = topology.compile_and_load_code(
-        client.raw(),
-        MODULE_ADD_ONE,
-        "mlir",
-        &compile_options,
-        None,
-    )?;
+    let executable =
+        client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &compile_options, None)?;
     let execute_context = PJRTExecuteContext::create(&rt)?;
 
     let raw_devices = client.devices()?;
@@ -199,9 +192,8 @@ fn multi_output_execute_with_context_smoke() -> Result<(), String> {
     };
 
     let client = rt.create_client_raii()?;
-    let topology = client.topology_description()?;
-    let executable =
-        topology.compile_and_load_code(client.raw(), MODULE_TWO_OUTPUTS, "mlir", &[], None)?;
+    let _topology = client.topology_description()?;
+    let executable = client.compile_on_topology_code(MODULE_TWO_OUTPUTS, "mlir", &[], None)?;
 
     let execute_context = PJRTExecuteContext::create(&rt)?;
     let raw_devices = client.devices()?;

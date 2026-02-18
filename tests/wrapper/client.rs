@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use rrad_xla::pjrt::device::PJRTDevice;
-use rrad_xla::pjrt::loader::PjrtRuntime;
-use rrad_xla::pjrt_sys::{
+use rrad_pjrt::pjrt::device::PJRTDevice;
+use rrad_pjrt::pjrt::loader::PjrtRuntime;
+use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Error_Code_PJRT_Error_Code_OK,
 };
 
@@ -138,5 +138,59 @@ fn client_fulfill_alias_buffer_smoke() -> Result<(), String> {
         PJRT_Error_Code_PJRT_Error_Code_OK,
         None,
     )?;
+    Ok(())
+}
+
+#[test]
+fn client_platform_name_matches_topology_smoke() -> Result<(), String> {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
+
+    let client = rt.create_client_raii()?;
+    let platform_name = client.platform_name()?;
+    let topology_platform_name = client.topology_platform_name()?;
+
+    assert!(
+        !platform_name.is_empty(),
+        "platform_name should not be empty"
+    );
+    assert!(
+        !topology_platform_name.is_empty(),
+        "topology platform_name should not be empty"
+    );
+    assert_eq!(
+        platform_name, topology_platform_name,
+        "client platform_name and topology platform_name should match"
+    );
+    Ok(())
+}
+
+#[test]
+fn client_addressable_memory_refs_match_raw_smoke() -> Result<(), String> {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
+
+    let client = rt.create_client_raii()?;
+    let raw_memories = client.addressable_memories()?;
+    let memory_refs = client.addressable_memory_refs()?;
+
+    assert!(
+        !raw_memories.is_empty(),
+        "expected at least one addressable memory"
+    );
+    assert_eq!(
+        raw_memories.len(),
+        memory_refs.len(),
+        "raw memory and memory ref counts should match"
+    );
+
+    for memory in &memory_refs {
+        let kind = memory.kind()?;
+        let id = memory.id()?;
+        assert!(!kind.is_empty(), "memory kind should not be empty");
+        assert!(id > 0, "memory id should be positive");
+    }
     Ok(())
 }

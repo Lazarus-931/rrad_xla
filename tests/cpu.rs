@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use rrad_xla::pjrt::loader::PjrtRuntime;
-use rrad_xla::pjrt_sys::PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
+use rrad_pjrt::pjrt::loader::PjrtRuntime;
+use rrad_pjrt::pjrt_sys::PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
 
 const MODULE_ADD_ONE: &str = r#"module {
 func.func @main(%arg0: tensor<f32>) -> tensor<f32> {

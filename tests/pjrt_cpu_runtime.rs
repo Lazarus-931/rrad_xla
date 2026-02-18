@@ -1,8 +1,8 @@
 use std::path::Path;
 
-use rrad_xla::pjrt::device::PJRTDevice;
-use rrad_xla::pjrt::loader::PjrtRuntime;
-use rrad_xla::pjrt_sys::PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
+use rrad_pjrt::pjrt::device::PJRTDevice;
+use rrad_pjrt::pjrt::loader::PjrtRuntime;
+use rrad_pjrt::pjrt_sys::PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
 
 fn plugin_path_from_env() -> Option<String> {
     std::env::var("PJRT_PLUGIN").ok().filter(|v| !v.is_empty())

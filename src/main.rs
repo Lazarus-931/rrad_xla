@@ -1,4 +1,4 @@
-use rrad_xla::pjrt::loader::PjrtRuntime;
+use rrad_pjrt::pjrt::loader::PjrtRuntime;
 use std::path::Path;
 use std::process::ExitCode;
 

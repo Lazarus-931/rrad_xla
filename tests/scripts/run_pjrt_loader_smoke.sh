@@ -11,4 +11,4 @@ export PJRT_PLUGIN="${PLUGIN_PATH}"
 
 cd "${REPO_ROOT}"
 echo "Running Rust PJRT loader smoke test with: ${PJRT_PLUGIN}"
-cargo run --bin rrad_xla
+cargo run --bin rrad_pjrt

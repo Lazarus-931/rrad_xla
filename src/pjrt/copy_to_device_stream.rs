@@ -1,6 +1,6 @@
-use std::ptr;
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
+use std::ptr;
 
 pub struct PJRTCopyToDeviceStreamRef<'a> {
     rt: &'a PjrtRuntime,
@@ -95,9 +95,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
             total_bytes: 0,
         };
 
-        let err = unsafe {
-            func(&mut args)
-        };
+        let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
             Err(error_to_string(self.rt.api(), err))

@@ -1,4 +1,4 @@
-# rrad_xla
+# rrad_pjrt
 rust in xla, like never before
 
 

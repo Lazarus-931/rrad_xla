@@ -64,7 +64,10 @@ pub struct PJRTDevice<'a> {
 
 impl<'a> PJRTDevice<'a> {
     pub fn new(rt: &'a PjrtRuntime, raw_device: *mut PJRT_Device) -> Self {
-        Self { rt, raw: raw_device }
+        Self {
+            rt,
+            raw: raw_device,
+        }
     }
 
     pub fn raw(&self) -> *mut PJRT_Device {

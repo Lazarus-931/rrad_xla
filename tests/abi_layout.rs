@@ -1,6 +1,6 @@
 use std::mem::size_of;
 
-use rrad_xla::pjrt_sys::*;
+use rrad_pjrt::pjrt_sys::*;
 
 // Minimal ABI/layout expectations for PJRT C API bindings.
 //

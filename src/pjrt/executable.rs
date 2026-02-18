@@ -16,6 +16,16 @@ pub struct PJRTLoadedExecutable<'a> {
 // Back-compat with the original name in this crate.
 pub type PJRTExecutable<'a> = PJRTLoadedExecutable<'a>;
 
+#[derive(Clone, Copy, Default)]
+pub struct PJRTExecuteRunOptions<'a> {
+    pub execute_context: Option<&'a PJRTExecuteContext<'a>>,
+    pub launch_id: i32,
+    pub non_donatable_input_indices: &'a [i64],
+    pub execute_device: Option<*mut PJRT_Device>,
+    pub num_send_ops: usize,
+    pub num_recv_ops: usize,
+}
+
 impl<'a> PJRTLoadedExecutable<'a> {
     pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_LoadedExecutable) -> Self {
         Self { rt, raw }
@@ -253,13 +263,13 @@ impl<'a> PJRTLoadedExecutable<'a> {
         &self,
         arguments: &[&PJRTBuffer<'a>],
     ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
-        self.execute_with_context(arguments, None)
+        self.execute_with_execute_options(arguments, PJRTExecuteRunOptions::default())
     }
 
-    pub fn execute_with_context(
+    pub fn execute_with_execute_options(
         &self,
         arguments: &[&PJRTBuffer<'a>],
-        execute_context: Option<&PJRTExecuteContext<'a>>,
+        options: PJRTExecuteRunOptions<'a>,
     ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
         let raw_executable = self.raw_checked()?;
         let num_outputs = self.num_outputs()?;
@@ -273,6 +283,20 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let argument_ptrs: Vec<*mut PJRT_Buffer> = arguments.iter().map(|b| b.raw()).collect();
         if argument_ptrs.iter().any(|p| p.is_null()) {
             return Err("execute arguments contain null PJRT_Buffer".to_string());
+        }
+
+        if options.num_send_ops > 0 || options.num_recv_ops > 0 {
+            return Err(
+                "send/recv callback counts are not supported yet (callbacks are null)".to_string(),
+            );
+        }
+
+        if options
+            .non_donatable_input_indices
+            .iter()
+            .any(|index| *index < 0)
+        {
+            return Err("non_donatable_input_indices must be non-negative".to_string());
         }
 
         let per_device_argument_lists: Vec<*const *mut PJRT_Buffer> =
@@ -289,21 +313,34 @@ impl<'a> PJRTLoadedExecutable<'a> {
             output_ptrs.as_mut_ptr()
         }];
 
-        let context_ptr = execute_context.map_or(ptr::null_mut(), |ctx| ctx.raw());
-        if execute_context.is_some() && context_ptr.is_null() {
+        let context_ptr = options
+            .execute_context
+            .map_or(ptr::null_mut(), |ctx| ctx.raw());
+        if options.execute_context.is_some() && context_ptr.is_null() {
             return Err("execute_context is null".to_string());
         }
 
-        let mut options = PJRT_ExecuteOptions {
+        let non_donatable_ptr = if options.non_donatable_input_indices.is_empty() {
+            ptr::null()
+        } else {
+            options.non_donatable_input_indices.as_ptr()
+        };
+
+        let execute_device = options.execute_device.unwrap_or(ptr::null_mut());
+        if options.execute_device.is_some() && execute_device.is_null() {
+            return Err("execute_device is null".to_string());
+        }
+
+        let mut pjrt_options = PJRT_ExecuteOptions {
             struct_size: PJRT_ExecuteOptions_STRUCT_SIZE as usize,
             extension_start: ptr::null_mut(),
             send_callbacks: ptr::null_mut(),
             recv_callbacks: ptr::null_mut(),
-            num_send_ops: 0,
-            num_recv_ops: 0,
-            launch_id: 0,
-            non_donatable_input_indices: ptr::null(),
-            num_non_donatable_input_indices: 0,
+            num_send_ops: options.num_send_ops,
+            num_recv_ops: options.num_recv_ops,
+            launch_id: options.launch_id,
+            non_donatable_input_indices: non_donatable_ptr,
+            num_non_donatable_input_indices: options.non_donatable_input_indices.len(),
             context: context_ptr,
             call_location: ptr::null(),
             num_tasks: 0,
@@ -317,13 +354,13 @@ impl<'a> PJRTLoadedExecutable<'a> {
             struct_size: PJRT_LoadedExecutable_Execute_Args_STRUCT_SIZE as usize,
             extension_start: ptr::null_mut(),
             executable: raw_executable,
-            options: &mut options,
+            options: &mut pjrt_options,
             argument_lists: per_device_argument_lists.as_ptr(),
             num_devices: 1,
             num_args: argument_ptrs.len(),
             output_lists: per_device_output_lists.as_ptr(),
             device_complete_events: &mut device_complete_event,
-            execute_device: ptr::null_mut(),
+            execute_device,
         };
 
         let err = unsafe { f(&mut args) };
@@ -366,6 +403,43 @@ impl<'a> PJRTLoadedExecutable<'a> {
             .collect();
         let event = PJRTEvent::new(self.rt, device_complete_event);
         Ok((output_buffers, event))
+    }
+
+    pub fn execute_with_options(
+        &self,
+        arguments: &[&PJRTBuffer<'a>],
+        execute_context: Option<&'a PJRTExecuteContext<'a>>,
+        num_send_ops: usize,
+        num_recv_ops: usize,
+        launch_id: i32,
+        non_donatable_input_indices: &'a [i64],
+        execute_device: *mut PJRT_Device,
+    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
+        let options = PJRTExecuteRunOptions {
+            execute_context,
+            launch_id,
+            non_donatable_input_indices,
+            execute_device: if execute_device.is_null() {
+                None
+            } else {
+                Some(execute_device)
+            },
+            num_send_ops,
+            num_recv_ops,
+        };
+        self.execute_with_execute_options(arguments, options)
+    }
+
+    pub fn execute_with_context(
+        &self,
+        arguments: &[&PJRTBuffer<'a>],
+        execute_context: Option<&'a PJRTExecuteContext<'a>>,
+    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
+        let options = PJRTExecuteRunOptions {
+            execute_context,
+            ..Default::default()
+        };
+        self.execute_with_execute_options(arguments, options)
     }
 
     pub fn num_replicas(&self) -> Result<usize, String> {

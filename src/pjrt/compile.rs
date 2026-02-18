@@ -57,12 +57,12 @@ impl<'a> PJRTCompiler<'a> {
 
         let mut args = PJRT_Client_Compile_Args {
             struct_size: PJRT_Client_Compile_Args_STRUCT_SIZE as usize,
-            extension_start: std::ptr::null_mut(),
+            extension_start: null_mut(),
             client,
             program: &program_local,
             compile_options: compile_options_ptr,
             compile_options_size,
-            executable: std::ptr::null_mut(),
+            executable: null_mut(),
         };
 
         let err = unsafe { client_compile(&mut args) };

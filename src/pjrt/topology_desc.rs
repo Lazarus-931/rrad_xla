@@ -1,6 +1,7 @@
 use std::ptr;
 use std::slice::from_raw_parts;
 
+use crate::pjrt::executable::PJRTLoadedExecutable;
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
 
@@ -439,7 +440,7 @@ impl<'a> PJRTTopologyDescription<'a> {
 
         let mut program_local = *program;
         if program_local.struct_size == 0 {
-            program_local.struct_size = PJRT_Program_STRUCT_SIZE as usize;
+            program_local.struct_size = std::mem::size_of::<PJRT_Program>();
         }
         if program_local.code_size > 0 && program_local.code.is_null() {
             return Err("PJRT_Program.code is null but code_size is nonzero".to_string());
@@ -482,6 +483,186 @@ impl<'a> PJRTTopologyDescription<'a> {
             return Err("PJRT_Compile returned null executable".to_string());
         }
         Ok(args.executable)
+    }
+
+    fn destroy_executable(&self, executable: *mut PJRT_Executable) -> Result<(), String> {
+        if executable.is_null() {
+            return Ok(());
+        }
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Executable_Destroy
+            .ok_or("PJRT_Executable_Destroy symbol not found")?;
+
+        let mut args = PJRT_Executable_Destroy_Args {
+            struct_size: PJRT_Executable_Destroy_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            executable,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if err.is_null() {
+            Ok(())
+        } else {
+            Err(error_to_string(self.rt.api(), err))
+        }
+    }
+
+    fn serialize_executable(&self, executable: *mut PJRT_Executable) -> Result<Vec<u8>, String> {
+        let f = self
+            .rt
+            .api()
+            .PJRT_Executable_Serialize
+            .ok_or("PJRT_Executable_Serialize symbol not found")?;
+
+        let mut args = PJRT_Executable_Serialize_Args {
+            struct_size: PJRT_Executable_Serialize_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            executable: executable as *const PJRT_Executable,
+            serialized_bytes: ptr::null(),
+            serialized_bytes_size: 0,
+            serialized_executable: ptr::null_mut(),
+            serialized_executable_deleter: None,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+
+        if !args.serialized_executable.is_null() && args.serialized_executable_deleter.is_none() {
+            return Err(
+                "PJRT_Executable_Serialize returned serialized_executable without deleter"
+                    .to_string(),
+            );
+        }
+
+        let result = if args.serialized_bytes_size == 0 {
+            Ok(Vec::new())
+        } else if args.serialized_bytes.is_null() {
+            Err(
+                "PJRT_Executable_Serialize returned null serialized_bytes with nonzero size"
+                    .to_string(),
+            )
+        } else {
+            let bytes = unsafe {
+                from_raw_parts(
+                    args.serialized_bytes as *const u8,
+                    args.serialized_bytes_size,
+                )
+            };
+            Ok(bytes.to_vec())
+        };
+
+        if !args.serialized_executable.is_null() {
+            if let Some(deleter) = args.serialized_executable_deleter {
+                unsafe { deleter(args.serialized_executable) };
+            }
+        }
+
+        result
+    }
+
+    pub fn compile_and_load(
+        &self,
+        client: *mut PJRT_Client,
+        program: &PJRT_Program,
+        compile_options: &[u8],
+        overridden_compile_options: Option<&[u8]>,
+    ) -> Result<PJRTLoadedExecutable<'a>, String> {
+        let executable = self.compile(client, program, compile_options)?;
+        let serialized = self.serialize_executable(executable);
+        let destroy_result = self.destroy_executable(executable);
+
+        let serialized = match serialized {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                if let Err(cleanup_err) = destroy_result {
+                    return Err(format!(
+                        "{e}; additionally failed to destroy compiled executable: {cleanup_err}"
+                    ));
+                }
+                return Err(e);
+            }
+        };
+
+        if let Err(e) = destroy_result {
+            return Err(e);
+        }
+
+        if serialized.is_empty() {
+            return Err("serialized executable must not be empty".to_string());
+        }
+
+        let f = self
+            .rt
+            .api()
+            .PJRT_Executable_DeserializeAndLoad
+            .ok_or("PJRT_Executable_DeserializeAndLoad symbol not found")?;
+
+        let (override_ptr, override_size) = match overridden_compile_options {
+            None => (ptr::null(), 0usize),
+            Some(opts) if opts.is_empty() => (ptr::null(), 0usize),
+            Some(opts) => (opts.as_ptr() as *const libc::c_char, opts.len()),
+        };
+
+        let mut args = PJRT_Executable_DeserializeAndLoad_Args {
+            struct_size: PJRT_Executable_DeserializeAndLoad_Args_STRUCT_SIZE as usize,
+            extension_start: ptr::null_mut(),
+            client,
+            serialized_executable: serialized.as_ptr() as *const libc::c_char,
+            serialized_executable_size: serialized.len(),
+            loaded_executable: ptr::null_mut(),
+            overridden_serialized_compile_options: override_ptr,
+            overridden_serialized_compile_options_size: override_size,
+        };
+
+        let err = unsafe { f(&mut args) };
+        if !err.is_null() {
+            return Err(error_to_string(self.rt.api(), err));
+        }
+        if args.loaded_executable.is_null() {
+            return Err(
+                "PJRT_Executable_DeserializeAndLoad succeeded but returned null loaded_executable"
+                    .to_string(),
+            );
+        }
+
+        Ok(PJRTLoadedExecutable::new(self.rt, args.loaded_executable))
+    }
+
+    pub fn compile_and_load_code(
+        &self,
+        client: *mut PJRT_Client,
+        program_code: &str,
+        format: &str,
+        compile_options: &[u8],
+        overridden_compile_options: Option<&[u8]>,
+    ) -> Result<PJRTLoadedExecutable<'a>, String> {
+        if program_code.is_empty() {
+            return Err("program_code must not be empty".to_string());
+        }
+        if format.is_empty() {
+            return Err("format must not be empty".to_string());
+        }
+
+        let program = PJRT_Program {
+            struct_size: std::mem::size_of::<PJRT_Program>(),
+            extension_start: ptr::null_mut(),
+            code: program_code.as_ptr() as *mut libc::c_char,
+            code_size: program_code.len(),
+            format: format.as_ptr() as *const libc::c_char,
+            format_size: format.len(),
+        };
+
+        self.compile_and_load(
+            client,
+            &program,
+            compile_options,
+            overridden_compile_options,
+        )
     }
 }
 

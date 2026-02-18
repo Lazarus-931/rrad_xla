@@ -2,6 +2,9 @@ use std::path::{Path, PathBuf};
 
 use rrad_xla::pjrt::device::PJRTDevice;
 use rrad_xla::pjrt::loader::PjrtRuntime;
+use rrad_xla::pjrt_sys::{
+    PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Error_Code_PJRT_Error_Code_OK,
+};
 
 fn resolve_plugin_path() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PJRT_PLUGIN") {
@@ -48,7 +51,10 @@ fn client_basic_metadata_smoke() -> Result<(), String> {
     let platform_version = client.platform_version()?;
     let process_index = client.process_index()?;
 
-    assert!(!platform_name.is_empty(), "platform_name should not be empty");
+    assert!(
+        !platform_name.is_empty(),
+        "platform_name should not be empty"
+    );
     assert!(
         !platform_version.is_empty(),
         "platform_version should not be empty"
@@ -75,7 +81,10 @@ fn client_lookup_first_device_smoke() -> Result<(), String> {
     assert!(!by_id.is_null(), "lookup_device returned null");
 
     let by_local = client.lookup_addressable_device(local_hardware_id)?;
-    assert!(!by_local.is_null(), "lookup_addressable_device returned null");
+    assert!(
+        !by_local.is_null(),
+        "lookup_addressable_device returned null"
+    );
     Ok(())
 }
 
@@ -107,4 +116,27 @@ fn client_topology_and_assignment_smoke() -> Result<(), String> {
     Ok(())
 }
 
+#[test]
+fn client_fulfill_alias_buffer_smoke() -> Result<(), String> {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
 
+    let client = rt.create_client_raii()?;
+    let device = client.lookup_addressable_device(0)?;
+
+    let dims = [4_i64];
+    let element_type = PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
+    let (_alias_buf, cb) = client.create_alias_buffer(&dims, element_type, None, None)?;
+
+    let host = [1.0_f32, 2.0, 3.0, 4.0];
+    let real = client.buffer_from_host_slice_copy(&host, element_type, &dims, Some(device))?;
+
+    client.fulfill_alias_buffer(
+        cb,
+        Some(real.raw()),
+        PJRT_Error_Code_PJRT_Error_Code_OK,
+        None,
+    )?;
+    Ok(())
+}

@@ -1,6 +1,7 @@
 use crate::pjrt::buffer::PJRTBuffer;
 use crate::pjrt::device::PJRTDevice;
 use crate::pjrt::event::PJRTEvent;
+use crate::pjrt::execute_context::PJRTExecuteContext;
 use crate::pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
 use std::ptr;
@@ -252,6 +253,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         &self,
         arguments: &[&PJRTBuffer<'a>],
     ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
+        self.execute_with_context(arguments, None)
+    }
+
+    pub fn execute_with_context(
+        &self,
+        arguments: &[&PJRTBuffer<'a>],
+        execute_context: Option<&PJRTExecuteContext<'a>>,
+    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
         let raw_executable = self.raw_checked()?;
         let num_outputs = self.num_outputs()?;
 
@@ -280,6 +289,11 @@ impl<'a> PJRTLoadedExecutable<'a> {
             output_ptrs.as_mut_ptr()
         }];
 
+        let context_ptr = execute_context.map_or(ptr::null_mut(), |ctx| ctx.raw());
+        if execute_context.is_some() && context_ptr.is_null() {
+            return Err("execute_context is null".to_string());
+        }
+
         let mut options = PJRT_ExecuteOptions {
             struct_size: PJRT_ExecuteOptions_STRUCT_SIZE as usize,
             extension_start: ptr::null_mut(),
@@ -290,7 +304,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
             launch_id: 0,
             non_donatable_input_indices: ptr::null(),
             num_non_donatable_input_indices: 0,
-            context: ptr::null_mut(),
+            context: context_ptr,
             call_location: ptr::null(),
             num_tasks: 0,
             task_ids: ptr::null_mut(),

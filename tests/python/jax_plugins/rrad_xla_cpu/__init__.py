@@ -9,7 +9,7 @@ _DEFAULT_BACKEND = "rrad_cpu"
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    return Path(__file__).resolve().parents[4]
 
 
 def _default_library_path() -> Path:

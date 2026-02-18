@@ -1,0 +1,26 @@
+# Rust
+/target/
+
+# IDEs
+/.idea/
+
+# Python
+__pycache__/
+*.pyc
+
+# Local virtualenvs
+/.venv/
+
+# CLion / CMake
+/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+
+# macOS
+.DS_Store
+
+# Local XLA checkout (clone separately or via CI)
+/xla/
+
+# Bazel output symlinks (if created in this repo root)
+/bazel-*

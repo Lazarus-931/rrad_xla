@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=tests/common.sh
+# shellcheck source=tests/scripts/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
@@ -33,7 +33,7 @@ fi
 PLUGIN_PATH="$(resolve_pjrt_plugin_path "${PLUGIN_OVERRIDE}")"
 
 export PJRT_PLUGIN="${PLUGIN_PATH}"
-export PYTHONPATH="${REPO_ROOT}/tests${PYTHONPATH:+:${PYTHONPATH}}"
+export PYTHONPATH="${REPO_ROOT}/tests/python${PYTHONPATH:+:${PYTHONPATH}}"
 
 echo "Running JAX PJRT smoke test with: ${PJRT_PLUGIN}"
-"${PYTHON_BIN}" "${SCRIPT_DIR}/jax_plugin_smoke.py" --plugin "${PJRT_PLUGIN}" "$@"
+"${PYTHON_BIN}" "${REPO_ROOT}/tests/python/jax_plugin_smoke.py" --plugin "${PJRT_PLUGIN}" "$@"

@@ -21,26 +21,32 @@ bazel build //xla/pjrt/c:pjrt_c_api_cpu_plugin.so
 Run Rust loader smoke test:
 
 ```bash
-tests/run_pjrt_loader_smoke.sh
+tests/scripts/run_pjrt_loader_smoke.sh
 ```
 
 Run Rust CPU runtime integration test (client/topology/device/buffer metadata):
 
 ```bash
-tests/run_pjrt_cpu_runtime_test.sh
+tests/scripts/run_pjrt_cpu_runtime_test.sh
 ```
 
 Run JAX plugin smoke test (add, jit, pmap):
 
 ```bash
-tests/run_jax_plugin_smoke.sh
+tests/scripts/run_jax_plugin_smoke.sh
 ```
 
 Optional plugin override:
 
 ```bash
-tests/run_jax_plugin_smoke.sh --plugin /absolute/path/to/pjrt_c_api_cpu_plugin.so
+tests/scripts/run_jax_plugin_smoke.sh --plugin /absolute/path/to/pjrt_c_api_cpu_plugin.so
 ```
+
+## Layout
+
+- `tests/wrapper/`: PJRT wrapper-focused Rust integration tests
+- `tests/scripts/`: shell entrypoints for smoke/integration execution
+- `tests/python/`: JAX smoke harness and local `jax_plugins` registration module
 
 ## Notes
 

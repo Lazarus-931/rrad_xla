@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=tests/common.sh
+# shellcheck source=tests/scripts/common.sh
 source "${SCRIPT_DIR}/common.sh"
 
 PLUGIN_PATH="$(resolve_pjrt_plugin_path "${1:-}")"

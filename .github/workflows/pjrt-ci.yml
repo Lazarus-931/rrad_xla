@@ -76,8 +76,8 @@ jobs:
       - name: Validate Test Scripts
         if: runner.os != 'Windows'
         run: |
-          bash -n tests/common.sh tests/run_pjrt_loader_smoke.sh tests/run_pjrt_cpu_runtime_test.sh tests/run_jax_plugin_smoke.sh
-          python -m py_compile tests/jax_plugin_smoke.py tests/jax_plugins/rrad_xla_cpu/__init__.py
+          bash -n tests/scripts/common.sh tests/scripts/run_pjrt_loader_smoke.sh tests/scripts/run_pjrt_cpu_runtime_test.sh tests/scripts/run_jax_plugin_smoke.sh
+          python -m py_compile tests/python/jax_plugin_smoke.py tests/python/jax_plugins/rrad_xla_cpu/__init__.py
 
   pjrt_loader_integration:
     name: PJRT Loader Integration (macOS)
@@ -138,10 +138,16 @@ jobs:
             //xla/pjrt/c:pjrt_c_api_cpu_plugin.so
 
       - name: Run Rust PJRT Loader Smoke
-        run: tests/run_pjrt_loader_smoke.sh
+        run: tests/scripts/run_pjrt_loader_smoke.sh
+
+      - name: Run Wrapper Tests
+        run: |
+          source tests/scripts/common.sh
+          export PJRT_PLUGIN="$(resolve_pjrt_plugin_path)"
+          cargo test --test wrapper_suite -- --nocapture
 
       - name: Run Rust PJRT CPU Runtime Test
-        run: tests/run_pjrt_cpu_runtime_test.sh
+        run: tests/scripts/run_pjrt_cpu_runtime_test.sh
 
   jax_plugin_smoke:
     name: JAX Plugin Smoke (Manual)
@@ -209,4 +215,4 @@ jobs:
           pip install git+https://github.com/google/jax
 
       - name: Run JAX Plugin Smoke
-        run: tests/run_jax_plugin_smoke.sh
+        run: tests/scripts/run_jax_plugin_smoke.sh

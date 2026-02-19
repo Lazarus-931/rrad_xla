@@ -1,5 +1,5 @@
-use crate::pjrt::error::PJRTError;
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::error::PJRTError;
+use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
 use std::mem;
 use std::ptr;

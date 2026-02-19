@@ -1,8 +1,9 @@
 use std::ptr;
 
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
-use crate::pjrt::memory::PJRTMemory;
-use crate::pjrt::topology_desc::{PJRTDeviceDescriptionRef, PJRTNamedAttribute};
+use crate::rrad_pjrt::loader::{PjrtRuntime};
+use crate::rrad_pjrt::loader::error_to_string;
+use crate::rrad_pjrt::memory::PJRTMemory;
+use crate::rrad_pjrt::topology_desc::{PJRTDeviceDescriptionRef, PJRTNamedAttribute};
 use crate::pjrt_sys::*;
 
 #[derive(Debug, Clone)]
@@ -300,7 +301,7 @@ impl<'a> PJRTDevice<'a> {
         }
     }
 
-    pub fn addressable_memories(&self) -> Result<Vec<*mut PJRT_Memory>, String> {
+    pub fn addressable_memories(&self) -> Result<Vec<PJRTMemory<'a>>, String> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -332,17 +333,14 @@ impl<'a> PJRTDevice<'a> {
         }
 
         let memories = unsafe { std::slice::from_raw_parts(args.memories, args.num_memories) };
-        Ok(memories.to_vec())
-    }
 
-    pub fn addressable_memory_refs(&self) -> Result<Vec<PJRTMemory<'a>>, String> {
-        Ok(self
-            .addressable_memories()?
-            .into_iter()
-            .map(|raw| PJRTMemory::new(self.rt, raw))
-            .collect())
+        Ok(memories.iter()
+            .copied()
+            .map(|memory| PJRTMemory::new(self.rt, memory))
+            .collect()
+        )
     }
-
+    
     pub fn default_memory(&self) -> Result<*mut PJRT_Memory, String> {
         let raw = self.raw_checked()?;
 

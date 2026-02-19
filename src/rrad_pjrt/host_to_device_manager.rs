@@ -1,10 +1,10 @@
 use std::ffi::c_void;
 use std::ptr;
 
-use crate::pjrt::buffer::PJRTBuffer;
-use crate::pjrt::device::PJRTDevice;
-use crate::pjrt::event::PJRTEvent;
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::buffer::PJRTBuffer;
+use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::event::PJRTEvent;
+use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
 
 pub struct PjrtHtoDeviceManager<'a> {
@@ -112,7 +112,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         }
     }
 
-    pub fn device(&self) -> Result<*mut PJRT_Device, String> {
+    pub fn device(&self) -> Result<PJRTDevice<'a>, String> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -137,12 +137,11 @@ impl<'a> PjrtHtoDeviceManager<'a> {
                 "PJRT_AsyncHostToDeviceTransferManager_Device returned null device".to_string(),
             );
         }
-        Ok(args.device_out)
+
+        let device = PJRTDevice::new(self.rt, args.device_out);
+        Ok(device)
     }
 
-    pub fn device_ref(&self) -> Result<PJRTDevice<'a>, String> {
-        Ok(PJRTDevice::new(self.rt, self.device()?))
-    }
 
     pub fn retrieve_buffer(&self, buffer_index: i32) -> Result<*mut PJRT_Buffer, String> {
         let raw = self.raw_checked()?;

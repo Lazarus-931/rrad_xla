@@ -1,6 +1,6 @@
-use crate::pjrt::device::PJRTDevice;
-use crate::pjrt::executable::PJRTLoadedExecutable;
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::executable::PJRTLoadedExecutable;
+use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
 use std::ptr::null_mut;
 

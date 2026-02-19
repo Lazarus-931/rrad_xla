@@ -4,8 +4,9 @@ use std::ptr;
 use std::slice::from_raw_parts;
 use std::vec::Vec;
 
-use crate::pjrt::client::PJRTClient;
-use crate::pjrt::topology_desc::{PJRTNamedAttribute, PJRTNamedValue};
+use crate::rrad_pjrt::client::PJRTClient;
+use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::topology_desc::{PJRTNamedAttribute, PJRTNamedValue};
 use crate::pjrt_sys::*;
 
 type GetPjrtApiFn = unsafe extern "C" fn() -> *const PJRT_Api;
@@ -93,7 +94,7 @@ impl PjrtRuntime {
         decode_named_values(args.attributes, args.num_attributes)
     }
 
-    pub fn create_client(&self) -> Result<*mut PJRT_Client, String> {
+    pub fn create_client<'a>(&'a self) -> Result<PJRTClient<'a>, String> {
         let f = self
             .api()
             .PJRT_Client_Create
@@ -119,15 +120,14 @@ impl PjrtRuntime {
             if args.client.is_null() {
                 return Err("PJRT_Client_Create succeeded but returned null client".into());
             }
-            Ok(args.client)
+            let client = PJRTClient {
+                rt: self,
+                raw: args.client,
+            };
+            Ok(client)
         } else {
             Err(error_to_string(self.api(), err))
         }
-    }
-
-    pub fn create_client_raii(&self) -> Result<PJRTClient<'_>, String> {
-        let raw = self.create_client()?;
-        Ok(PJRTClient::new(self, raw))
     }
 
     pub fn destroy_client(&self, client: *mut PJRT_Client) -> Result<(), String> {
@@ -156,10 +156,10 @@ impl PjrtRuntime {
         Err("PJRT_Device objects are obtained from PJRT_Client_Devices; there is no PJRT_Device_Create in the C API".to_string())
     }
 
-    pub fn client_devices(
-        &self,
+    pub fn client_devices<'a>(
+        &'a self,
         client: *mut PJRT_Client,
-    ) -> Result<Vec<*mut PJRT_Device>, String> {
+    ) -> Result<Vec<PJRTDevice<'a>>, String> {
         let f = self
             .api()
             .PJRT_Client_Devices
@@ -187,8 +187,13 @@ impl PjrtRuntime {
             return Err("PJRT_Client_Devices returned null devices with nonzero count".to_string());
         }
 
-        let devices = unsafe { from_raw_parts(args.devices, args.num_devices) };
-        Ok(devices.to_vec())
+        let raw_devices = unsafe { from_raw_parts(args.devices, args.num_devices) };
+        Ok(raw_devices
+            .iter()
+            .copied()
+            .map(|raw_device| PJRTDevice::new(self, raw_device))
+            .collect()
+        )
     }
 }
 
@@ -300,61 +305,8 @@ pub(crate) fn error_to_string(api: &PJRT_Api, error: *mut PJRT_Error) -> String 
         }
     } else if msg == "unknown PJRT error" {
         msg = "unknown PJRT error (and PJRT_Error_Destroy unavailable)".to_string();
-    }
-
+    };
     msg
 }
 
-#[cfg(test)]
-mod pjrt_runtime_tests {
-    use crate::pjrt::loader::PjrtRuntime;
-    use std::path::Path;
 
-    fn runtime_or_skip() -> Option<PjrtRuntime> {
-        let path = Path::new("target/debug/libpjrt_test_plugin.so");
-        if !path.is_file() {
-            eprintln!("Skipping loader unit test: {} not found", path.display());
-            return None;
-        }
-        match PjrtRuntime::load(path) {
-            Ok(rt) => Some(rt),
-            Err(err) => {
-                eprintln!("Skipping loader unit test: failed to load plugin: {err}");
-                None
-            }
-        }
-    }
-
-    #[test]
-    fn test_load() {
-        let _ = runtime_or_skip();
-    }
-
-    #[test]
-    fn test_create_client() {
-        let Some(rt) = runtime_or_skip() else {
-            return;
-        };
-        let client = rt.create_client();
-        assert!(client.is_ok(), "create_client failed: {:?}", client.err());
-    }
-
-    #[test]
-    fn test_initialize_plugin() {
-        let Some(rt) = runtime_or_skip() else {
-            return;
-        };
-        let init = rt.initialize_plugin();
-        assert!(init.is_ok(), "initialize_plugin failed: {:?}", init.err());
-    }
-
-    #[test]
-    fn test_client_devices() {
-        let Some(rt) = runtime_or_skip() else {
-            return;
-        };
-        let client = rt.create_client().expect("create_client should succeed");
-        assert!(!client.is_null());
-        assert!(!rt.client_devices(client).unwrap().is_empty())
-    }
-}

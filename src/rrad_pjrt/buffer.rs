@@ -3,10 +3,11 @@ use std::ptr;
 use std::ptr::null_mut;
 use std::slice::from_raw_parts;
 
-use crate::pjrt::device::PJRTDevice;
-use crate::pjrt::event::PJRTEvent;
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
-use crate::pjrt::topology_desc::PJRTNamedAttribute;
+use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::event::PJRTEvent;
+use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::memory::PJRTMemory;
+use crate::rrad_pjrt::topology_desc::PJRTNamedAttribute;
 use crate::pjrt_sys::*;
 
 pub struct PJRTBuffer<'a> {
@@ -42,7 +43,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_Delete_Args {
             struct_size: PJRT_Buffer_Delete_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
         };
 
@@ -65,7 +66,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_IsDeleted_Args {
             struct_size: PJRT_Buffer_IsDeleted_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             is_deleted: false,
         };
@@ -89,7 +90,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_ElementType_Args {
             struct_size: PJRT_Buffer_ElementType_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             type_: PJRT_Buffer_Type_PJRT_Buffer_Type_INVALID,
         };
@@ -113,7 +114,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_Dimensions_Args {
             struct_size: PJRT_Buffer_Dimensions_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             dims: ptr::null(),
             num_dims: 0,
@@ -144,7 +145,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_UnpaddedDimensions_Args {
             struct_size: PJRT_Buffer_UnpaddedDimensions_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             unpadded_dims: ptr::null(),
             num_dims: 0,
@@ -178,7 +179,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_DynamicDimensionIndices_Args {
             struct_size: PJRT_Buffer_DynamicDimensionIndices_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             dynamic_dim_indices: ptr::null(),
             num_dynamic_dims: 0,
@@ -201,7 +202,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(unsafe { from_raw_parts(args.dynamic_dim_indices, args.num_dynamic_dims).to_vec() })
     }
 
-    pub fn device(&self) -> Result<*mut PJRT_Device, String> {
+    pub fn device(&self) -> Result<PJRTDevice<'a>, String> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -212,9 +213,9 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_Device_Args {
             struct_size: PJRT_Buffer_Device_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
-            device: ptr::null_mut(),
+            device: null_mut(),
         };
 
         let err = unsafe { f(&mut args) };
@@ -222,36 +223,31 @@ impl<'a> PJRTBuffer<'a> {
             if args.device.is_null() {
                 Err("PJRT_Buffer_Device returned null device".into())
             } else {
-                Ok(args.device)
+                Ok(PJRTDevice::new(self.rt, args.device))
             }
         } else {
             Err(error_to_string(self.rt.api(), err))
         }
     }
 
-    pub fn device_ref(&self) -> Result<PJRTDevice<'a>, String> {
-        let raw_device = self.device()?;
-        Ok(PJRTDevice::new(self.rt, raw_device))
-    }
-
     pub fn device_id(&self) -> Result<i32, String> {
-        self.device_ref()?.id()
+        self.device()?.id()
     }
 
     pub fn device_kind(&self) -> Result<String, String> {
-        self.device_ref()?.kind()
+        self.device()?.kind()
     }
 
     pub fn device_process_index(&self) -> Result<i32, String> {
-        self.device_ref()?.process_index()
+        self.device()?.process_index()
     }
 
     pub fn device_debug_string(&self) -> Result<String, String> {
-        self.device_ref()?.debug_string()
+        self.device()?.debug_string()
     }
 
     pub fn device_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, String> {
-        self.device_ref()?.attributes()
+        self.device()?.attributes()
     }
 
     pub fn on_device_size_in_bytes(&self) -> Result<usize, String> {
@@ -265,7 +261,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_OnDeviceSizeInBytes_Args {
             struct_size: PJRT_Buffer_OnDeviceSizeInBytes_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             on_device_size_in_bytes: 0,
         };
@@ -289,7 +285,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_GetMemoryLayout_Args {
             struct_size: PJRT_Buffer_GetMemoryLayout_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             layout: unsafe { mem::zeroed() },
         };
@@ -313,9 +309,9 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_ReadyEvent_Args {
             struct_size: PJRT_Buffer_ReadyEvent_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
-            event: ptr::null_mut(),
+            event: null_mut(),
         };
 
         let err = unsafe { f(&mut args) };
@@ -339,16 +335,16 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_ToHostBuffer_Args {
             struct_size: PJRT_Buffer_ToHostBuffer_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             src: raw,
-            host_layout: ptr::null_mut(),
+            host_layout: null_mut(),
             dst: if dst.is_empty() {
-                ptr::null_mut()
+                null_mut()
             } else {
                 dst.as_mut_ptr().cast::<libc::c_void>()
             },
             dst_size: dst.len(),
-            event: ptr::null_mut(),
+            event: null_mut(),
         };
 
         let err = unsafe { f(&mut args) };
@@ -372,7 +368,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_UnsafePointer_Args {
             struct_size: PJRT_Buffer_UnsafePointer_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             buffer_pointer: 0,
         };
@@ -396,9 +392,9 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_OpaqueDeviceMemoryDataPointer_Args {
             struct_size: PJRT_Buffer_OpaqueDeviceMemoryDataPointer_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
-            device_memory_ptr: ptr::null_mut(),
+            device_memory_ptr: null_mut(),
         };
 
         let err = unsafe { f(&mut args) };
@@ -434,16 +430,16 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_CopyRawToHost_Args {
             struct_size: PJRT_Buffer_CopyRawToHost_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             dst: if dst.is_empty() {
-                ptr::null_mut()
+                null_mut()
             } else {
                 dst.as_mut_ptr().cast::<libc::c_void>()
             },
             offset,
             transfer_size,
-            event: ptr::null_mut(),
+            event: null_mut(),
         };
 
         let err = unsafe { f(&mut args) };
@@ -456,7 +452,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(PJRTEvent::new(self.rt, args.event))
     }
 
-    pub fn copy_to_device(&self, device: &PJRTDevice) -> Result<*mut PJRT_Buffer, String> {
+    pub fn copy_to_device(&self, device: &PJRTDevice) -> Result<PJRTBuffer<'a>, String> {
         let raw = self.raw_checked()?;
         let dst_device = device.raw();
         if dst_device.is_null() {
@@ -484,7 +480,7 @@ impl<'a> PJRTBuffer<'a> {
         } else if args.dst_buffer.is_null() {
             Err("PJRT_Buffer_CopyToDevice returned null dst_buffer".to_string())
         } else {
-            Ok(args.dst_buffer)
+            Ok(PJRTBuffer::new(self.rt, args.dst_buffer))
         }
     }
 
@@ -502,11 +498,11 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_DonateWithControlDependency_Args {
             struct_size: PJRT_Buffer_DonateWithControlDependency_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
-            callback_data: ptr::null_mut(),
+            callback_data: null_mut(),
             dependency_ready_callback: None,
-            out_buffer: ptr::null_mut(),
+            out_buffer: null_mut(),
         };
 
         let err = unsafe { f(&mut args) };
@@ -549,7 +545,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(PJRTBuffer::new(self.rt, args.out_buffer))
     }
 
-    pub fn copy_to_memory(&self, dst_memory: *mut PJRT_Memory) -> Result<*mut PJRT_Buffer, String> {
+    pub fn copy_to_memory(&self, dst_memory: *mut PJRT_Memory) -> Result<PJRTBuffer<'a>, String> {
         let raw = self.raw_checked()?;
         if dst_memory.is_null() {
             return Err("copy_to_memory: dst_memory is null".to_string());
@@ -573,8 +569,10 @@ impl<'a> PJRTBuffer<'a> {
 
         if !err.is_null() {
             Err(error_to_string(self.rt.api(), err).to_string())
+        } else if args.dst_buffer.is_null() {
+            Err("PJRT_Buffer_CopyToMemory returned null dst_buffer".to_string())
         } else {
-            Ok(args.dst_buffer)
+            Ok(PJRTBuffer::new(self.rt, args.dst_buffer))
         }
     }
 
@@ -608,11 +606,11 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_CopyRawToHostFuture_Args {
             struct_size: PJRT_Buffer_CopyRawToHostFuture_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             offset,
             transfer_size,
-            event: ptr::null_mut(),
+            event: null_mut(),
             callback_data,
             future_ready_callback,
         };
@@ -638,7 +636,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_IsOnCpu_Args {
             struct_size: PJRT_Buffer_IsOnCpu_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
             is_on_cpu: false,
         };
@@ -651,7 +649,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn memory(&self) -> Result<*mut PJRT_Memory, String> {
+    pub fn memory(&self) -> Result<PJRTMemory<'a>, String> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -662,9 +660,9 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_Memory_Args {
             struct_size: PJRT_Buffer_Memory_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
-            memory: ptr::null_mut(),
+            memory: null_mut(),
         };
 
         let err = unsafe { f(&mut args) };
@@ -675,7 +673,7 @@ impl<'a> PJRTBuffer<'a> {
             return Err("PJRT_Buffer_Memory returned null memory".to_string());
         }
 
-        Ok(args.memory)
+        Ok(PJRTMemory::new(self.rt, args.memory))
     }
 
     pub fn increase_external_ref(&self) -> Result<(), String> {
@@ -689,7 +687,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let mut args = PJRT_Buffer_IncreaseExternalReferenceCount_Args {
             struct_size: PJRT_Buffer_IncreaseExternalReferenceCount_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: raw,
         };
 
@@ -737,7 +735,7 @@ impl Drop for PJRTBuffer<'_> {
 
         let mut args = PJRT_Buffer_Destroy_Args {
             struct_size: PJRT_Buffer_Destroy_Args_STRUCT_SIZE as usize,
-            extension_start: ptr::null_mut(),
+            extension_start: null_mut(),
             buffer: self.raw,
         };
 

@@ -1,8 +1,8 @@
 use std::ptr;
 use std::slice::from_raw_parts;
 
-use crate::pjrt::executable::PJRTLoadedExecutable;
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::executable::PJRTLoadedExecutable;
+use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
 
 #[derive(Debug, Clone)]

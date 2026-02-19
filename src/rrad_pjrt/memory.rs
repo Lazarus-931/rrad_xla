@@ -2,8 +2,8 @@ use std::ptr;
 use std::ptr::null_mut;
 use std::slice::from_raw_parts;
 
-use crate::pjrt::device::PJRTDevice;
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
 
 pub struct PJRTMemory<'a> {

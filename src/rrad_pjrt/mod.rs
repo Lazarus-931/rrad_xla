@@ -11,3 +11,4 @@ pub mod host_to_device_manager;
 pub mod loader;
 pub mod memory;
 pub mod topology_desc;
+pub mod utils;

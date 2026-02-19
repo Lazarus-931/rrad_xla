@@ -51,7 +51,7 @@ fn buffer_get_memory_layout_smoke() -> Result<(), String> {
 
     let layout = buffer.get_memory_layout()?;
     let memory = buffer.memory()?;
-    assert!(!memory.is_null(), "buffer memory should not be null");
+    assert!(!memory.raw.is_null(), "buffer memory should not be null");
     assert!(
         layout.type_ == PJRT_Buffer_MemoryLayout_Type_PJRT_Buffer_MemoryLayout_Type_Tiled
             || layout.type_ == PJRT_Buffer_MemoryLayout_Type_PJRT_Buffer_MemoryLayout_Type_Strides,

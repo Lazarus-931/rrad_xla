@@ -1,6 +1,6 @@
 use std::ptr;
 
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
 
 pub struct PJRTExecuteContext<'a> {

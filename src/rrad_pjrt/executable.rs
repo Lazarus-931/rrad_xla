@@ -1,8 +1,8 @@
-use crate::pjrt::buffer::PJRTBuffer;
-use crate::pjrt::device::PJRTDevice;
-use crate::pjrt::event::PJRTEvent;
-use crate::pjrt::execute_context::PJRTExecuteContext;
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::buffer::PJRTBuffer;
+use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::event::PJRTEvent;
+use crate::rrad_pjrt::execute_context::PJRTExecuteContext;
+use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::pjrt_sys::*;
 use std::ptr;
 use std::ptr::{null, null_mut};

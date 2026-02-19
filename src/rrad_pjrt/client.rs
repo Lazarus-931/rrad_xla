@@ -1,45 +1,49 @@
-use crate::pjrt::buffer::PJRTBuffer;
-use crate::pjrt::compile::PJRTCompiler;
-use crate::pjrt::event::PJRTEvent;
-use crate::pjrt::executable::PJRTLoadedExecutable;
-use crate::pjrt::host_to_device_manager::PjrtHtoDeviceManager;
-use crate::pjrt::loader::{error_to_string, PjrtRuntime};
-use crate::pjrt::memory::PJRTMemory;
-use crate::pjrt::topology_desc::{PJRTNamedAttribute, PJRTTopologyDescription};
+use std::any::Any;
+use crate::rrad_pjrt::buffer::PJRTBuffer;
+use crate::rrad_pjrt::compile::PJRTCompiler;
+use crate::rrad_pjrt::event::PJRTEvent;
+use crate::rrad_pjrt::executable::PJRTLoadedExecutable;
+use crate::rrad_pjrt::host_to_device_manager::PjrtHtoDeviceManager;
+use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::memory::PJRTMemory;
+use crate::rrad_pjrt::topology_desc::{PJRTNamedAttribute, PJRTTopologyDescription};
 use crate::pjrt_sys::*;
 use std::ffi::c_void;
 use std::ptr;
-use std::ptr::null_mut;
+use std::ptr::{null, null_mut};
+use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::utils::{BufferFromHostOptions, Shape};
+use crate::rrad_pjrt::error::PJRTError;
 //raii wrapper for PJRT_Client
 
 pub struct PJRTClient<'a> {
     pub rt: &'a PjrtRuntime,
-    pub raw_client: *mut PJRT_Client,
+    pub raw: *mut PJRT_Client,
 }
 
 impl<'a> PJRTClient<'a> {
     pub(crate) fn new(rt: &'a PjrtRuntime, raw_client: *mut PJRT_Client) -> Self {
-        Self { rt, raw_client }
+        Self { rt, raw: raw_client }
     }
 
-    pub fn devices(&self) -> Result<Vec<*mut PJRT_Device>, String> {
-        self.rt.client_devices(self.raw_client)
+    pub fn devices(&self) -> Result<Vec<PJRTDevice<'a>>, String> {
+        self.rt.client_devices(self.raw)
     }
 
     pub fn raw(&self) -> *mut PJRT_Client {
-        self.raw_client
+        self.raw
     }
 
     pub fn raw_checked(&self) -> Result<*mut PJRT_Client, String> {
-        if self.raw_client.is_null() {
+        if self.raw.is_null() {
             Err("PJRT_Client is null".to_string())
         } else {
-            Ok(self.raw_client)
+            Ok(self.raw)
         }
     }
 
     pub fn compiler(&self) -> PJRTCompiler<'a> {
-        PJRTCompiler::new(self.rt, self.raw_client)
+        PJRTCompiler::new(self.rt, self.raw)
     }
 
     pub fn compile(
@@ -82,7 +86,7 @@ impl<'a> PJRTClient<'a> {
     }
 
     pub fn topology_description(&self) -> Result<PJRTTopologyDescription<'a>, String> {
-        if self.raw_client.is_null() {
+        if self.raw.is_null() {
             return Err("PJRT_Client is null".to_string());
         }
 
@@ -95,7 +99,7 @@ impl<'a> PJRTClient<'a> {
         let mut args = PJRT_Client_TopologyDescription_Args {
             struct_size: PJRT_Client_TopologyDescription_Args_STRUCT_SIZE as usize,
             extension_start: ptr::null_mut(),
-            client: self.raw_client,
+            client: self.raw,
             topology: ptr::null_mut(),
         };
 
@@ -237,7 +241,7 @@ impl<'a> PJRTClient<'a> {
         }
     }
 
-    pub fn lookup_device(&self, id: i32) -> Result<*mut PJRT_Device, String> {
+    pub fn lookup_device(&'a self, id: i32) -> Result<PJRTDevice<'a>, String> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -261,13 +265,14 @@ impl<'a> PJRTClient<'a> {
         if args.device.is_null() {
             return Err("PJRT_Client_LookupDevice returned null device".to_string());
         }
-        Ok(args.device)
+        let device = PJRTDevice::new(self.rt, args.device);
+        Ok(device)
     }
 
     pub fn lookup_addressable_device(
-        &self,
+        &'a self,
         local_hardware_id: i32,
-    ) -> Result<*mut PJRT_Device, String> {
+    ) -> Result<PJRTDevice<'a>, String> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -291,10 +296,11 @@ impl<'a> PJRTClient<'a> {
         if args.addressable_device.is_null() {
             return Err("PJRT_Client_LookupAddressableDevice returned null device".to_string());
         }
-        Ok(args.addressable_device)
+        let device = PJRTDevice::new(self.rt, args.addressable_device);
+        Ok(device)
     }
 
-    pub fn addressable_memories(&self) -> Result<Vec<*mut PJRT_Memory>, String> {
+    pub fn addressable_memories(&self) -> Result<Vec<PJRTMemory<'a>>, String> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -328,18 +334,17 @@ impl<'a> PJRTClient<'a> {
         let memories = unsafe {
             std::slice::from_raw_parts(args.addressable_memories, args.num_addressable_memories)
         };
-        Ok(memories.to_vec())
-    }
-
-    pub fn addressable_memory_refs(&self) -> Result<Vec<PJRTMemory<'a>>, String> {
-        Ok(self
-            .addressable_memories()?
-            .into_iter()
-            .map(|raw| PJRTMemory::new(self.rt, raw))
-            .collect())
+        Ok(memories
+            .to_vec()
+            .iter()
+            .copied()
+            .map(|memory| PJRTMemory::new(self.rt, memory))
+            .collect()
+        )
     }
 
     pub fn create_buffers_for_async_host_to_device(
+
         &self,
         shape_specs: &mut [PJRT_ShapeSpec],
         device_layouts: &mut [*mut PJRT_Buffer_MemoryLayout],
@@ -387,6 +392,29 @@ impl<'a> PJRTClient<'a> {
 
         Ok(PjrtHtoDeviceManager::new(self.rt, args.transfer_manager))
     }
+
+      pub fn buffer_from_host_slice<T: Copy>(
+      &self,
+      host: &[T],
+      shape: Shape<'_>,
+      opts: BufferFromHostOptions<'a>,
+  ) -> Result<PJRTBuffer<'a>, PJRTError> {
+          let client = self.raw_checked()?;
+          let function = self.rt
+              .api().PJRT_Client_BufferFromHostBuffer
+              .ok_or("PJRT_Client_BufferFromHostBuffer not found");
+
+          let mut args = PJRT_Client_BufferFromHostBuffer_Args {
+              struct_size: PJRT_Client_BufferFromHostBuffer_Args_STRUCT_SIZE as usize,
+              extension_start: null_mut(),
+              client,
+              data: null(),
+              type_: opts.semantics.type_id()
+
+
+
+          }
+      }
 
     pub fn dma_map(&self, data: *mut c_void, size: usize) -> Result<(), String> {
         let client = self.raw_checked()?;
@@ -516,7 +544,8 @@ impl<'a> PJRTClient<'a> {
                 .devices()?
                 .into_iter()
                 .next()
-                .ok_or("PJRT_Client has no devices")?,
+                .ok_or("PJRT_Client has no devices")?
+                .raw(),
         };
         if device.is_null() {
             return Err("create_view_of_device_buffer device is null".to_string());
@@ -592,7 +621,8 @@ impl<'a> PJRTClient<'a> {
                 .devices()?
                 .into_iter()
                 .next()
-                .ok_or("PJRT_Client has no devices")?,
+                .ok_or("PJRT_Client has no devices")?
+                .raw(),
         };
 
         let mut args = PJRT_Client_BufferFromHostBuffer_Args {
@@ -856,7 +886,7 @@ impl<'a> PJRTClient<'a> {
 
     // destory errors
     pub fn close(self) -> Result<(), String> {
-        let raw = self.raw_client;
+        let raw = self.raw;
         let rt = self.rt;
         std::mem::forget(self);
         rt.destroy_client(raw)
@@ -903,11 +933,11 @@ impl<'a> PJRTClient<'a> {
 
 impl Drop for PJRTClient<'_> {
     fn drop(&mut self) {
-        if self.raw_client.is_null() {
+        if self.raw.is_null() {
             return;
         }
 
         // Drop must not panic; best effort cleanup.
-        let _ = self.rt.destroy_client(self.raw_client);
+        let _ = self.rt.destroy_client(self.raw);
     }
 }

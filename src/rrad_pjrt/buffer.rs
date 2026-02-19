@@ -3,12 +3,13 @@ use std::ptr;
 use std::ptr::null_mut;
 use std::slice::from_raw_parts;
 
+use crate::pjrt_sys::*;
 use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::event::PJRTEvent;
 use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
 use crate::rrad_pjrt::memory::PJRTMemory;
 use crate::rrad_pjrt::topology_desc::PJRTNamedAttribute;
-use crate::pjrt_sys::*;
 
 pub struct PJRTBuffer<'a> {
     pub rt: &'a PjrtRuntime,
@@ -24,22 +25,26 @@ impl<'a> PJRTBuffer<'a> {
         self.raw
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_Buffer, String> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+        PJRTError::invalid_arg(self.rt, msg)
+    }
+
+    fn raw_checked(&self) -> Result<*mut PJRT_Buffer, PJRTError<'a>> {
         if self.raw.is_null() {
-            Err("PJRT_Buffer is null".to_string())
+            Err(self.error("PJRTBuffer is null"))
         } else {
             Ok(self.raw)
         }
     }
 
-    pub fn delete(&self) -> Result<(), String> {
+    pub fn delete(&self) -> Result<(), PJRTError<'a>> {
         let raw = self.raw_checked()?;
 
         let f = self
             .rt
             .api()
             .PJRT_Buffer_Delete
-            .ok_or("PJRT_Buffer_Delete symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Buffer_Delete symbol not found"))?;
 
         let mut args = PJRT_Buffer_Delete_Args {
             struct_size: PJRT_Buffer_Delete_Args_STRUCT_SIZE as usize,
@@ -51,18 +56,18 @@ impl<'a> PJRTBuffer<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
-    pub fn is_deleted(&self) -> Result<bool, String> {
+    pub fn is_deleted(&self) -> Result<bool, PJRTError<'a>> {
         let raw = self.raw_checked()?;
 
         let f = self
             .rt
             .api()
             .PJRT_Buffer_IsDeleted
-            .ok_or("PJRT_Buffer_IsDeleted symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Buffer_IsDeleted symbol not found"))?;
 
         let mut args = PJRT_Buffer_IsDeleted_Args {
             struct_size: PJRT_Buffer_IsDeleted_Args_STRUCT_SIZE as usize,
@@ -75,18 +80,18 @@ impl<'a> PJRTBuffer<'a> {
         if err.is_null() {
             Ok(args.is_deleted)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
-    pub fn element_type(&self) -> Result<PJRT_Buffer_Type, String> {
+    pub fn element_type(&self) -> Result<PJRT_Buffer_Type, PJRTError<'a>> {
         let raw = self.raw_checked()?;
 
         let f = self
             .rt
             .api()
             .PJRT_Buffer_ElementType
-            .ok_or("PJRT_Buffer_ElementType symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Buffer_ElementType symbol not found"))?;
 
         let mut args = PJRT_Buffer_ElementType_Args {
             struct_size: PJRT_Buffer_ElementType_Args_STRUCT_SIZE as usize,
@@ -99,18 +104,18 @@ impl<'a> PJRTBuffer<'a> {
         if err.is_null() {
             Ok(args.type_)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
-    pub fn dimensions(&self) -> Result<Vec<i64>, String> {
+    pub fn dimensions(&self) -> Result<Vec<i64>, PJRTError<'a>> {
         let raw = self.raw_checked()?;
 
         let f = self
             .rt
             .api()
             .PJRT_Buffer_Dimensions
-            .ok_or("PJRT_Buffer_Dimensions symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Buffer_Dimensions symbol not found"))?;
 
         let mut args = PJRT_Buffer_Dimensions_Args {
             struct_size: PJRT_Buffer_Dimensions_Args_STRUCT_SIZE as usize,
@@ -122,26 +127,28 @@ impl<'a> PJRTBuffer<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.num_dims == 0 {
             return Ok(Vec::new());
         }
         if args.dims.is_null() {
-            return Err("PJRT_Buffer_Dimensions returned null dims with nonzero num_dims".into());
+            return Err(
+                self.error("PJRT_Buffer_Dimensions returned null dims with nonzero num_dims")
+            );
         }
 
         Ok(unsafe { from_raw_parts(args.dims, args.num_dims).to_vec() })
     }
 
-    pub fn unpadded_dimensions(&self) -> Result<Vec<i64>, String> {
+    pub fn unpadded_dimensions(&self) -> Result<Vec<i64>, PJRTError<'a>> {
         let raw = self.raw_checked()?;
 
         let f = self
             .rt
             .api()
             .PJRT_Buffer_UnpaddedDimensions
-            .ok_or("PJRT_Buffer_UnpaddedDimensions symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Buffer_UnpaddedDimensions symbol not found"))?;
 
         let mut args = PJRT_Buffer_UnpaddedDimensions_Args {
             struct_size: PJRT_Buffer_UnpaddedDimensions_Args_STRUCT_SIZE as usize,
@@ -153,23 +160,22 @@ impl<'a> PJRTBuffer<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.num_dims == 0 {
             return Ok(Vec::new());
         }
         if args.unpadded_dims.is_null() {
-            return Err(
-                "PJRT_Buffer_UnpaddedDimensions returned null unpadded_dims with nonzero num_dims"
-                    .into(),
-            );
+            return Err(self.error(
+                "PJRT_Buffer_UnpaddedDimensions returned null unpadded_dims with nonzero num_dims",
+            ));
         }
 
         Ok(unsafe { from_raw_parts(args.unpadded_dims, args.num_dims).to_vec() })
     }
 
     pub fn dynamic_dimension_indices(&self) -> Result<Vec<usize>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -203,7 +209,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn device(&self) -> Result<PJRTDevice<'a>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -251,7 +257,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn on_device_size_in_bytes(&self) -> Result<usize, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -275,7 +281,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn get_memory_layout(&self) -> Result<PJRT_Buffer_MemoryLayout, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -299,7 +305,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn ready_event(&self) -> Result<PJRTEvent<'a>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -326,7 +332,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn to_host_buffer_async(&self, dst: &mut [u8]) -> Result<PJRTEvent<'a>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
         let f = self
             .rt
             .api()
@@ -358,7 +364,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn unsafe_pointer(&self) -> Result<usize, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -382,7 +388,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn opaque_device_memory_data_pointer(&self) -> Result<Option<*mut libc::c_void>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -415,7 +421,7 @@ impl<'a> PJRTBuffer<'a> {
         dst: &mut [u8],
         offset: i64,
     ) -> Result<PJRTEvent<'a>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
         if offset < 0 {
             return Err("offset must be >= 0".to_string());
         }
@@ -453,7 +459,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn copy_to_device(&self, device: &PJRTDevice) -> Result<PJRTBuffer<'a>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
         let dst_device = device.raw();
         if dst_device.is_null() {
             return Err("copy_to_device: destination device is null".to_string());
@@ -488,7 +494,7 @@ impl<'a> PJRTBuffer<'a> {
         &self,
         dependency: &PJRTEvent<'a>,
     ) -> Result<PJRTBuffer<'a>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -546,7 +552,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn copy_to_memory(&self, dst_memory: *mut PJRT_Memory) -> Result<PJRTBuffer<'a>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
         if dst_memory.is_null() {
             return Err("copy_to_memory: dst_memory is null".to_string());
         }
@@ -590,7 +596,7 @@ impl<'a> PJRTBuffer<'a> {
             unsafe extern "C" fn(args: *mut PJRT_Buffer_CopyRawToHostFuture_Callback_Args),
         >,
     ) -> Result<PJRTEvent<'a>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
         if offset < 0 {
             return Err("offset must be >= 0".to_string());
         }
@@ -626,7 +632,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn is_on_cpu(&self) -> Result<bool, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -650,7 +656,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn memory(&self) -> Result<PJRTMemory<'a>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -677,7 +683,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn increase_external_ref(&self) -> Result<(), String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let func = self
             .rt
@@ -700,7 +706,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 
     pub fn decrease_external_ref(&self) -> Result<(), String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let func = self
             .rt

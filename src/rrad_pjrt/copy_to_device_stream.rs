@@ -1,6 +1,8 @@
-use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
-use crate::pjrt_sys::*;
 use std::ptr;
+
+use crate::pjrt_sys::*;
+use crate::rrad_pjrt::error::PJRTError;
+use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
 
 pub struct PJRTCopyToDeviceStreamRef<'a> {
     rt: &'a PjrtRuntime,
@@ -16,9 +18,13 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
         self.raw
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_CopyToDeviceStream, String> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+        PJRTError::invalid_arg(self.rt, msg)
+    }
+
+    fn raw_checked(&self) -> Result<*mut PJRT_CopyToDeviceStream, PJRTError<'a>> {
         if self.raw.is_null() {
-            Err("PJRT_CopyToDeviceStream is null".to_string())
+            Err(self.error("PJRT_CopyToDeviceStream is null"))
         } else {
             Ok(self.raw)
         }
@@ -29,16 +35,21 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
         chunk: *mut PJRT_Chunk,
         transfer_complete: Option<*mut PJRT_Event>,
     ) -> Result<(), String> {
-        let stream = self.raw_checked()?;
+        let stream = self.raw_checked().map_err(|e| e.to_string())?;
         if chunk.is_null() {
-            return Err("PJRT_CopyToDeviceStream_AddChunk chunk is null".to_string());
+            return Err(self
+                .error("PJRT_CopyToDeviceStream_AddChunk chunk is null")
+                .to_string());
         }
 
         let func = self
             .rt
             .api()
             .PJRT_CopyToDeviceStream_AddChunk
-            .ok_or("PJRT_CopyToDeviceStream_AddChunk symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_CopyToDeviceStream_AddChunk symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_CopyToDeviceStream_AddChunk_Args {
             struct_size: PJRT_CopyToDeviceStream_AddChunk_Args_STRUCT_SIZE as usize,
@@ -57,12 +68,16 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
     }
 
     pub fn current_bytes(&self) -> Result<i64, String> {
-        let stream = self.raw_checked()?;
+        let stream = self.raw_checked().map_err(|e| e.to_string())?;
+
         let func = self
             .rt
             .api()
             .PJRT_CopyToDeviceStream_CurrentBytes
-            .ok_or("PJRT_CopyToDeviceStream_CurrentBytes symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_CopyToDeviceStream_CurrentBytes symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_CopyToDeviceStream_CurrentBytes_Args {
             struct_size: PJRT_CopyToDeviceStream_CurrentBytes_Args_STRUCT_SIZE as usize,
@@ -80,13 +95,16 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
     }
 
     pub fn total_bytes(&self) -> Result<i64, String> {
-        let stream = self.raw_checked()?;
+        let stream = self.raw_checked().map_err(|e| e.to_string())?;
 
         let func = self
             .rt
             .api()
             .PJRT_CopyToDeviceStream_TotalBytes
-            .ok_or("PJRT_CopyToDeviceStream_TotalBytes symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_CopyToDeviceStream_TotalBytes symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_CopyToDeviceStream_TotalBytes_Args {
             struct_size: PJRT_CopyToDeviceStream_TotalBytes_Args_STRUCT_SIZE as usize,
@@ -96,7 +114,6 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
         };
 
         let err = unsafe { func(&mut args) };
-
         if !err.is_null() {
             Err(error_to_string(self.rt.api(), err))
         } else {
@@ -105,13 +122,16 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
     }
 
     pub fn granule_size(&self) -> Result<i64, String> {
-        let stream = self.raw_checked()?;
+        let stream = self.raw_checked().map_err(|e| e.to_string())?;
 
-        let funct = self
+        let func = self
             .rt
             .api()
             .PJRT_CopyToDeviceStream_GranuleSize
-            .ok_or("PJRT_CopyToDeviceStream_GranuleSize symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_CopyToDeviceStream_GranuleSize symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_CopyToDeviceStream_GranuleSize_Args {
             struct_size: PJRT_CopyToDeviceStream_GranuleSize_Args_STRUCT_SIZE as usize,
@@ -120,8 +140,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
             granule_size_in_bytes: 0,
         };
 
-        let err = unsafe { funct(&mut args) };
-
+        let err = unsafe { func(&mut args) };
         if !err.is_null() {
             Err(error_to_string(self.rt.api(), err))
         } else {
@@ -129,11 +148,11 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
         }
     }
 
-    // Backward compatibility with previous misspelling.
     pub fn granul_size(&self) -> Result<i64, String> {
         self.granule_size()
     }
 }
+
 impl Drop for PJRTCopyToDeviceStreamRef<'_> {
     fn drop(&mut self) {
         if self.raw.is_null() {
@@ -149,9 +168,12 @@ impl Drop for PJRTCopyToDeviceStreamRef<'_> {
             extension_start: ptr::null_mut(),
             stream: self.raw,
         };
+
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
             let _ = error_to_string(self.rt.api(), err);
         }
+
+        self.raw = ptr::null_mut();
     }
 }

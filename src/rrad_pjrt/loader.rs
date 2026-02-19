@@ -4,10 +4,11 @@ use std::ptr;
 use std::slice::from_raw_parts;
 use std::vec::Vec;
 
+use crate::pjrt_sys::*;
 use crate::rrad_pjrt::client::PJRTClient;
 use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::topology_desc::{PJRTNamedAttribute, PJRTNamedValue};
-use crate::pjrt_sys::*;
 
 type GetPjrtApiFn = unsafe extern "C" fn() -> *const PJRT_Api;
 
@@ -159,11 +160,11 @@ impl PjrtRuntime {
     pub fn client_devices<'a>(
         &'a self,
         client: *mut PJRT_Client,
-    ) -> Result<Vec<PJRTDevice<'a>>, String> {
+    ) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
         let f = self
             .api()
             .PJRT_Client_Devices
-            .ok_or("PJRT_Client_Devices symbol not found")?;
+            .ok_or_else(|| PJRTError::invalid_arg(self, "PJRT_Client_Devices symbol not found"))?;
 
         let mut args = PJRT_Client_Devices_Args {
             struct_size: PJRT_Client_Devices_Args_STRUCT_SIZE as usize,
@@ -176,7 +177,7 @@ impl PjrtRuntime {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            return Err(error_to_string(self.api(), err));
+            return Err(PJRTError::new(self, err));
         }
 
         if args.num_devices == 0 {
@@ -184,7 +185,10 @@ impl PjrtRuntime {
         }
 
         if args.devices.is_null() {
-            return Err("PJRT_Client_Devices returned null devices with nonzero count".to_string());
+            return Err(PJRTError::invalid_arg(
+                self,
+                "PJRT_Client_Devices returned null devices with nonzero count",
+            ));
         }
 
         let raw_devices = unsafe { from_raw_parts(args.devices, args.num_devices) };
@@ -192,8 +196,7 @@ impl PjrtRuntime {
             .iter()
             .copied()
             .map(|raw_device| PJRTDevice::new(self, raw_device))
-            .collect()
-        )
+            .collect())
     }
 }
 
@@ -308,5 +311,3 @@ pub(crate) fn error_to_string(api: &PJRT_Api, error: *mut PJRT_Error) -> String 
     };
     msg
 }
-
-

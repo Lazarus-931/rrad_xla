@@ -1,7 +1,8 @@
+use crate::pjrt_sys::*;
 use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::executable::PJRTLoadedExecutable;
 use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
-use crate::pjrt_sys::*;
 use std::ptr::null_mut;
 
 pub struct PJRTCompiler<'a> {
@@ -12,6 +13,10 @@ pub struct PJRTCompiler<'a> {
 impl<'a> PJRTCompiler<'a> {
     pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_Client) -> Self {
         Self { rt, raw }
+    }
+
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+        PJRTError::invalid_arg(self.rt, msg)
     }
 
     fn raw_checked(&self) -> Result<*mut PJRT_Client, String> {
@@ -26,25 +31,27 @@ impl<'a> PJRTCompiler<'a> {
         &self,
         program: &PJRT_Program,
         compile_options: &[u8],
-    ) -> Result<PJRTLoadedExecutable<'a>, String> {
-        let client = self.raw_checked()?;
+    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+        let client = self
+            .raw_checked()
+            .or_else(|_| Err(self.error("PJRT_Client is null")))?;
         let mut program_local = *program;
 
         if program_local.struct_size == 0 {
             program_local.struct_size = std::mem::size_of::<PJRT_Program>();
         }
         if program_local.code_size > 0 && program_local.code.is_null() {
-            return Err("PJRT_Program.code is null but code_size is nonzero".to_string());
+            return Err(self.error("PJRT_Program.code is null but code_size is nonzero"));
         }
         if program_local.format_size > 0 && program_local.format.is_null() {
-            return Err("PJRT_Program.format is null but format_size is nonzero".to_string());
+            return Err(self.error("PJRT_Program.format is null but format_size is nonzero"));
         }
 
         let client_compile = self
             .rt
             .api()
             .PJRT_Client_Compile
-            .ok_or("PJRT_Client_Compile symbol not found")?;
+            .ok_or(self.error("PJRT_Client_Compile symbol not found"))?;
 
         let (compile_options_ptr, compile_options_size) = if compile_options.is_empty() {
             (std::ptr::null(), 0usize)
@@ -68,10 +75,10 @@ impl<'a> PJRTCompiler<'a> {
         let err = unsafe { client_compile(&mut args) };
 
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("PJRT_Client_Compile is null"));
         }
         if args.executable.is_null() {
-            return Err("PJRT_Client_Compile succeeded but returned null executable".to_string());
+            return Err(self.error("PJRT_Client_Compile returned null executable"));
         }
 
         Ok(PJRTLoadedExecutable::new(self.rt, args.executable))
@@ -82,12 +89,12 @@ impl<'a> PJRTCompiler<'a> {
         program_code: &str,
         format: &str,
         compile_options: &[u8],
-    ) -> Result<PJRTLoadedExecutable<'a>, String> {
+    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
         if program_code.is_empty() {
-            return Err("program_code must not be empty".to_string());
+            return Err(self.error("program_code must not be empty")).into();
         }
         if format.is_empty() {
-            return Err("format must not be empty".to_string());
+            return Err(self.error("format must not be empty")).into();
         }
 
         let program = PJRT_Program {
@@ -108,9 +115,9 @@ impl<'a> PJRTCompiler<'a> {
         program: &mut PJRT_Program,
         format: &str,
         compile_options: &[u8],
-    ) -> Result<PJRTLoadedExecutable<'a>, String> {
+    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
         if format.is_empty() {
-            return Err("format must not be empty".to_string());
+            return Err(self.error("format must not be empty"));
         }
         program.format = format.as_ptr() as *const libc::c_char;
         program.format_size = format.len();

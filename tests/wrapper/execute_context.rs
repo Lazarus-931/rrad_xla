@@ -7,6 +7,7 @@ use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_ExecuteContext_Destroy_Args,
     PJRT_ExecuteContext_Destroy_Args_STRUCT_SIZE,
 };
+use rrad_pjrt::rrad_pjrt::execute_context::PJRTExecuteContext;
 
 const MODULE_ADD_ONE: &str = r#"module {
 func.func @main(%arg0: tensor<f32>) -> tensor<f32> {

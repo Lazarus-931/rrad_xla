@@ -1,9 +1,10 @@
+use crate::pjrt_sys::*;
 use crate::rrad_pjrt::buffer::PJRTBuffer;
 use crate::rrad_pjrt::device::PJRTDevice;
+use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::event::PJRTEvent;
 use crate::rrad_pjrt::execute_context::PJRTExecuteContext;
 use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
-use crate::pjrt_sys::*;
 use std::ptr;
 use std::ptr::{null, null_mut};
 use std::slice::from_raw_parts;
@@ -31,22 +32,26 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Self { rt, raw }
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_LoadedExecutable, String> {
+    fn raw_checked(&self) -> Result<*mut PJRT_LoadedExecutable, PJRTError<'a>> {
         if self.raw.is_null() {
-            Err("PJRT_LoadedExecutable is null".to_string())
+            Err(self.error("PJRT_LoadedExecutable is null"))
         } else {
             Ok(self.raw)
         }
     }
 
-    fn executable(&self) -> Result<*mut PJRT_Executable, String> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+        PJRTError::invalid_arg(self.rt, msg)
+    }
+
+    fn executable(&self) -> Result<*mut PJRT_Executable, PJRTError<'a>> {
         let raw = self.raw_checked()?;
 
         let f = self
             .rt
             .api()
             .PJRT_LoadedExecutable_GetExecutable
-            .ok_or("PJRT_LoadedExecutable_GetExecutable symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_LoadedExecutable_GetExecutable symbol not found"))?;
 
         let mut args = PJRT_LoadedExecutable_GetExecutable_Args {
             struct_size: PJRT_LoadedExecutable_GetExecutable_Args_STRUCT_SIZE as usize,
@@ -57,21 +62,21 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.executable.is_null() {
-            return Err("PJRT_LoadedExecutable_GetExecutable returned null executable".into());
+            return Err(self.error("PJRT_LoadedExecutable_GetExecutable returned null executable"));
         }
         Ok(args.executable)
     }
 
-    pub fn serialize(&self) -> Result<Vec<u8>, String> {
+    pub fn serialize(&self) -> Result<Vec<u8>, PJRTError<'a>> {
         let executable = self.executable()?;
         let func = self
             .rt
             .api()
             .PJRT_Executable_Serialize
-            .ok_or("PJRT_Executable_Serialize symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_Serialize symbol not found"))?;
 
         let mut args = PJRT_Executable_Serialize_Args {
             struct_size: PJRT_Executable_Serialize_Args_STRUCT_SIZE as usize,
@@ -85,23 +90,21 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(PJRTError::new(self.rt, err));
         }
 
         if !args.serialized_executable.is_null() && args.serialized_executable_deleter.is_none() {
-            return Err(
-                "PJRT_Executable_Serialize returned serialized_executable without deleter"
-                    .to_string(),
-            );
+            return Err(self.error(
+                "PJRT_Executable_Serialize returned serialized_executable without deleter",
+            ));
         }
 
         let result = if args.serialized_bytes_size == 0 {
             Ok(Vec::new())
         } else if args.serialized_bytes.is_null() {
-            Err(
-                "PJRT_Executable_Serialize returned null serialized_bytes with nonzero size"
-                    .to_string(),
-            )
+            Err(self.error(
+                "PJRT_Executable_Serialize returned null serialized_bytes with nonzero size",
+            ))
         } else {
             let bytes = unsafe {
                 from_raw_parts(
@@ -126,19 +129,19 @@ impl<'a> PJRTLoadedExecutable<'a> {
         client: *mut PJRT_Client,
         serialized_executable: &[u8],
         overridden_compile_options: Option<&[u8]>,
-    ) -> Result<PJRTLoadedExecutable<'a>, String> {
+    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
         if client.is_null() {
-            return Err("PJRT_Client is null".to_string());
+            return Err(self.error("client must not be null"));
         }
         if serialized_executable.is_empty() {
-            return Err("serialized_executable must not be empty".to_string());
+            return Err(self.error("serialized_executable must not be empty"));
         }
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_DeserializeAndLoad
-            .ok_or("PJRT_Executable_DeserializeAndLoad symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_DeserializeAndLoad symbol not found"))?;
 
         let serialized_ptr = serialized_executable.as_ptr() as *const libc::c_char;
         let serialized_size = serialized_executable.len();
@@ -162,26 +165,25 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.loaded_executable.is_null() {
-            return Err(
-                "PJRT_Executable_DeserializeAndLoad succeeded but returned null loaded_executable"
-                    .to_string(),
-            );
+            return Err(self.error(
+                "PJRT_Executable_DeserializeAndLoad succeeded but returned null loaded_executable",
+            ));
         }
 
         Ok(PJRTLoadedExecutable::new(self.rt, args.loaded_executable))
     }
 
-    pub fn get_compile_options(&self) -> Result<Vec<u8>, String> {
+    pub fn get_compile_options(&self) -> Result<Vec<u8>, PJRTError<'a>> {
         let exec = self.executable()?;
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_GetCompileOptions
-            .ok_or("PJRT_Executable_GetCompileOptions symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_GetCompileOptions symbol not found"))?;
 
         let mut args = PJRT_Executable_GetCompileOptions_Args {
             struct_size: PJRT_Executable_GetCompileOptions_Args_STRUCT_SIZE as usize,
@@ -195,23 +197,18 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(PJRTError::new(self.rt, err));
         }
 
         if args.serialized_bytes_size > 0 && args.serialized_bytes.is_null() {
             return Err(
-                "PJRT_Executable_GetCompileOptions returned null serialized_bytes with nonzero size"
-                    .to_string(),
-            );
+                self.error("PJRT_Executable_GetCompileOptions returned null serialized_bytes with nonzero size"));
         }
 
         if !args.serialized_compile_options.is_null()
             && args.serialized_compile_options_deleter.is_none()
         {
-            return Err(
-                "PJRT_Executable_GetCompileOptions returned serialized_compile_options without deleter"
-                    .to_string(),
-            );
+            return Err(self.error("PJRT_Executable_GetCompileOptions returned serialized_compile_options without deleter"));
         }
 
         let result = if args.serialized_bytes_size == 0 {
@@ -235,14 +232,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         result
     }
 
-    fn num_outputs(&self) -> Result<usize, String> {
+    fn num_outputs(&self) -> Result<usize, PJRTError<'a>> {
         let exec = self.executable()?;
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_NumOutputs
-            .ok_or("PJRT_Executable_NumOutputs symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_NumOutputs symbol not found"))?;
 
         let mut args = PJRT_Executable_NumOutputs_Args {
             struct_size: PJRT_Executable_NumOutputs_Args_STRUCT_SIZE as usize,
@@ -255,7 +252,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(args.num_outputs)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -264,13 +261,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         arguments: &[&PJRTBuffer<'a>],
     ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
         self.execute_with_execute_options(arguments, PJRTExecuteRunOptions::default())
+            .map_err(|e| e.to_string())
     }
 
     pub fn execute_with_execute_options(
         &self,
         arguments: &[&PJRTBuffer<'a>],
         options: PJRTExecuteRunOptions<'a>,
-    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
+    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), PJRTError<'a>> {
         let raw_executable = self.raw_checked()?;
         let num_outputs = self.num_outputs()?;
 
@@ -278,16 +276,16 @@ impl<'a> PJRTLoadedExecutable<'a> {
             .rt
             .api()
             .PJRT_LoadedExecutable_Execute
-            .ok_or("PJRT_LoadedExecutable_Execute symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_LoadedExecutable_Execute symbol not found"))?;
 
         let argument_ptrs: Vec<*mut PJRT_Buffer> = arguments.iter().map(|b| b.raw()).collect();
         if argument_ptrs.iter().any(|p| p.is_null()) {
-            return Err("execute arguments contain null PJRT_Buffer".to_string());
+            return Err(self.error("execute arguments contain null PJRT_Buffer"));
         }
 
         if options.num_send_ops > 0 || options.num_recv_ops > 0 {
             return Err(
-                "send/recv callback counts are not supported yet (callbacks are null)".to_string(),
+                self.error("send/recv callback counts are not supported yet (callbacks are null)")
             );
         }
 
@@ -296,7 +294,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
             .iter()
             .any(|index| *index < 0)
         {
-            return Err("non_donatable_input_indices must be non-negative".to_string());
+            return Err(self.error("non_donatable_input_indices must be non-negative"));
         }
 
         let per_device_argument_lists: Vec<*const *mut PJRT_Buffer> =
@@ -317,7 +315,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
             .execute_context
             .map_or(ptr::null_mut(), |ctx| ctx.raw());
         if options.execute_context.is_some() && context_ptr.is_null() {
-            return Err("execute_context is null".to_string());
+            return Err(self.error("execute_context is null"));
         }
 
         let non_donatable_ptr = if options.non_donatable_input_indices.is_empty() {
@@ -328,7 +326,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let execute_device = options.execute_device.unwrap_or(ptr::null_mut());
         if options.execute_device.is_some() && execute_device.is_null() {
-            return Err("execute_device is null".to_string());
+            return Err(self.error("execute_device is null"));
         }
 
         let mut pjrt_options = PJRT_ExecuteOptions {
@@ -365,23 +363,22 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(PJRTError::new(self.rt, err));
         }
 
         if args.num_args != argument_ptrs.len() {
-            return Err(format!(
+            return Err(self.error(format!(
                 "execute argument count mismatch: requested {} but runtime used {}",
                 argument_ptrs.len(),
                 args.num_args
-            ));
+            )));
         }
 
         let output_list_ptr = per_device_output_lists[0];
         if num_outputs > 0 && output_list_ptr.is_null() {
-            return Err(
-                "PJRT_LoadedExecutable_Execute returned null output list with nonzero num_outputs"
-                    .to_string(),
-            );
+            return Err(self.error(
+                "PJRT_LoadedExecutable_Execute returned null output list with nonzero num_outputs",
+            ));
         }
 
         let output_raws: Vec<*mut PJRT_Buffer> = if num_outputs == 0 {
@@ -390,11 +387,11 @@ impl<'a> PJRTLoadedExecutable<'a> {
             unsafe { from_raw_parts(output_list_ptr, num_outputs).to_vec() }
         };
         if output_raws.iter().any(|p| p.is_null()) {
-            return Err("PJRT_LoadedExecutable_Execute produced null output buffer".to_string());
+            return Err(self.error("PJRT_LoadedExecutable_Execute produced null output buffer"));
         }
 
         if device_complete_event.is_null() {
-            return Err("PJRT_LoadedExecutable_Execute returned null completion event".to_string());
+            return Err(self.error("PJRT_LoadedExecutable_Execute returned null completion event"));
         }
 
         let output_buffers = output_raws
@@ -414,7 +411,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         launch_id: i32,
         non_donatable_input_indices: &'a [i64],
         execute_device: *mut PJRT_Device,
-    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
+    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), PJRTError<'a>> {
         let options = PJRTExecuteRunOptions {
             execute_context,
             launch_id,
@@ -434,7 +431,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         &self,
         arguments: &[&PJRTBuffer<'a>],
         execute_context: Option<&'a PJRTExecuteContext<'a>>,
-    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
+    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), PJRTError<'a>> {
         let options = PJRTExecuteRunOptions {
             execute_context,
             ..Default::default()
@@ -443,7 +440,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn num_replicas(&self) -> Result<usize, String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -467,7 +464,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn num_partitions(&self) -> Result<usize, String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -491,7 +488,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn destroy_executable_handle(&self) -> Result<(), String> {
-        let executable = self.executable()?;
+        let executable = self.executable().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -514,7 +511,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn delete(&self) -> Result<(), String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -537,7 +534,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn is_deleted(&self) -> Result<bool, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -561,7 +558,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn output_element_types(&self) -> Result<Vec<PJRT_Buffer_Type>, String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -597,7 +594,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn addressable_devices(&self) -> Result<Vec<*mut PJRT_Device>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -669,7 +666,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn fingerprint(&self) -> Result<String, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -705,7 +702,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn executable_fingerprint(&self) -> Result<String, String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -745,7 +742,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn size_of_generated_code_in_bytes(&self) -> Result<i64, String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -769,7 +766,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn output_memory_kinds(&self) -> Result<Vec<String>, String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -825,7 +822,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn device_assignment_serialized(&self) -> Result<Vec<u8>, String> {
-        let raw = self.raw_checked()?;
+        let raw = self.raw_checked().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -883,7 +880,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn name(&self) -> Result<String, String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let f = self
             .rt
@@ -915,7 +912,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn get_compiled_memory_stats(&self) -> Result<Vec<i64>, String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let func = self
             .rt
@@ -966,7 +963,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn get_cost_analysis(&self) -> Result<String, String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let func = self
             .rt
@@ -1014,7 +1011,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn optimized_program(&self) -> Result<(), String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let func = self
             .rt
@@ -1039,7 +1036,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn output_dimension(&self) -> Result<i64, String> {
-        let exec = self.executable()?;
+        let exec = self.executable().map_err(|e| e.to_string())?;
 
         let func = self
             .rt

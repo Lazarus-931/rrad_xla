@@ -1,9 +1,10 @@
 use std::ptr;
 use std::slice::from_raw_parts;
 
+use crate::pjrt_sys::*;
+use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::executable::PJRTLoadedExecutable;
 use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
-use crate::pjrt_sys::*;
 
 #[derive(Debug, Clone)]
 pub enum PJRTNamedValue {
@@ -34,9 +35,13 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         self.raw
     }
 
+    fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+        PJRTError::invalid_arg(self.rt, msg)
+    }
+
     fn raw_checked(&self) -> Result<*mut PJRT_DeviceDescription, String> {
         if self.raw.is_null() {
-            Err("PJRT_DeviceDescription is null".to_string())
+            Err(self.error("PJRT_DeviceDescription is null").to_string())
         } else {
             Ok(self.raw)
         }
@@ -44,11 +49,10 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
 
     pub fn id(&self) -> Result<i32, String> {
         let raw = self.raw_checked()?;
-        let f = self
-            .rt
-            .api()
-            .PJRT_DeviceDescription_Id
-            .ok_or("PJRT_DeviceDescription_Id symbol not found")?;
+        let f = self.rt.api().PJRT_DeviceDescription_Id.ok_or_else(|| {
+            self.error("PJRT_DeviceDescription_Id symbol not found")
+                .to_string()
+        })?;
 
         let mut args = PJRT_DeviceDescription_Id_Args {
             struct_size: PJRT_DeviceDescription_Id_Args_STRUCT_SIZE as usize,
@@ -70,7 +74,10 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
             .rt
             .api()
             .PJRT_DeviceDescription_ProcessIndex
-            .ok_or("PJRT_DeviceDescription_ProcessIndex symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_DeviceDescription_ProcessIndex symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_DeviceDescription_ProcessIndex_Args {
             struct_size: PJRT_DeviceDescription_ProcessIndex_Args_STRUCT_SIZE as usize,
@@ -88,11 +95,10 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
 
     pub fn kind(&self) -> Result<String, String> {
         let raw = self.raw_checked()?;
-        let f = self
-            .rt
-            .api()
-            .PJRT_DeviceDescription_Kind
-            .ok_or("PJRT_DeviceDescription_Kind symbol not found")?;
+        let f = self.rt.api().PJRT_DeviceDescription_Kind.ok_or_else(|| {
+            self.error("PJRT_DeviceDescription_Kind symbol not found")
+                .to_string()
+        })?;
 
         let mut args = PJRT_DeviceDescription_Kind_Args {
             struct_size: PJRT_DeviceDescription_Kind_Args_STRUCT_SIZE as usize,
@@ -114,7 +120,10 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
             .rt
             .api()
             .PJRT_DeviceDescription_DebugString
-            .ok_or("PJRT_DeviceDescription_DebugString symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_DeviceDescription_DebugString symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_DeviceDescription_DebugString_Args {
             struct_size: PJRT_DeviceDescription_DebugString_Args_STRUCT_SIZE as usize,
@@ -136,7 +145,10 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
             .rt
             .api()
             .PJRT_DeviceDescription_ToString
-            .ok_or("PJRT_DeviceDescription_ToString symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_DeviceDescription_ToString symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_DeviceDescription_ToString_Args {
             struct_size: PJRT_DeviceDescription_ToString_Args_STRUCT_SIZE as usize,
@@ -158,7 +170,10 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
             .rt
             .api()
             .PJRT_DeviceDescription_Attributes
-            .ok_or("PJRT_DeviceDescription_Attributes symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_DeviceDescription_Attributes symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_DeviceDescription_Attributes_Args {
             struct_size: PJRT_DeviceDescription_Attributes_Args_STRUCT_SIZE as usize,
@@ -189,15 +204,19 @@ impl<'a> PJRTTopologyDescription<'a> {
         self.raw
     }
 
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+        PJRTError::invalid_arg(self.rt, msg)
+    }
+
     pub fn create(
         rt: &'a PjrtRuntime,
         topology_name: Option<&str>,
         create_options: &[PJRT_NamedValue],
     ) -> Result<Self, String> {
-        let function = rt
-            .api()
-            .PJRT_TopologyDescription_Create
-            .ok_or("PJRT_TopologyDescription_Create symbol not found")?;
+        let function = rt.api().PJRT_TopologyDescription_Create.ok_or_else(|| {
+            PJRTError::invalid_arg(rt, "PJRT_TopologyDescription_Create symbol not found")
+                .to_string()
+        })?;
 
         let (topology_name_ptr, topology_name_size) = match topology_name {
             None => (ptr::null(), 0usize),
@@ -225,7 +244,11 @@ impl<'a> PJRTTopologyDescription<'a> {
             return Err(error_to_string(rt.api(), err));
         }
         if args.topology.is_null() {
-            return Err("PJRT_TopologyDescription_Create returned null topology".to_string());
+            return Err(PJRTError::invalid_arg(
+                rt,
+                "PJRT_TopologyDescription_Create returned null topology",
+            )
+            .to_string());
         }
 
         Ok(Self::new(rt, args.topology))
@@ -237,7 +260,7 @@ impl<'a> PJRTTopologyDescription<'a> {
 
     fn raw_checked(&self) -> Result<*mut PJRT_TopologyDescription, String> {
         if self.raw.is_null() {
-            Err("PJRT_TopologyDescription is null".to_string())
+            Err(self.error("PJRT_TopologyDescription is null").to_string())
         } else {
             Ok(self.raw)
         }
@@ -249,7 +272,10 @@ impl<'a> PJRTTopologyDescription<'a> {
             .rt
             .api()
             .PJRT_TopologyDescription_PlatformName
-            .ok_or("PJRT_TopologyDescription_PlatformName symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_TopologyDescription_PlatformName symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_TopologyDescription_PlatformName_Args {
             struct_size: PJRT_TopologyDescription_PlatformName_Args_STRUCT_SIZE as usize,
@@ -271,7 +297,10 @@ impl<'a> PJRTTopologyDescription<'a> {
             .rt
             .api()
             .PJRT_TopologyDescription_PlatformVersion
-            .ok_or("PJRT_TopologyDescription_PlatformVersion symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_TopologyDescription_PlatformVersion symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_TopologyDescription_PlatformVersion_Args {
             struct_size: PJRT_TopologyDescription_PlatformVersion_Args_STRUCT_SIZE as usize,
@@ -297,7 +326,10 @@ impl<'a> PJRTTopologyDescription<'a> {
             .rt
             .api()
             .PJRT_TopologyDescription_GetDeviceDescriptions
-            .ok_or("PJRT_TopologyDescription_GetDeviceDescriptions symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_TopologyDescription_GetDeviceDescriptions symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_TopologyDescription_GetDeviceDescriptions_Args {
             struct_size: PJRT_TopologyDescription_GetDeviceDescriptions_Args_STRUCT_SIZE as usize,
@@ -314,7 +346,9 @@ impl<'a> PJRTTopologyDescription<'a> {
             return Ok(Vec::new());
         }
         if args.descriptions.is_null() {
-            return Err("Topology returned null descriptions with nonzero count".to_string());
+            return Err(self
+                .error("Topology returned null descriptions with nonzero count")
+                .to_string());
         }
 
         let descriptions = unsafe { from_raw_parts(args.descriptions, args.num_descriptions) };
@@ -332,7 +366,10 @@ impl<'a> PJRTTopologyDescription<'a> {
             .rt
             .api()
             .PJRT_TopologyDescription_Attributes
-            .ok_or("PJRT_TopologyDescription_Attributes symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_TopologyDescription_Attributes symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_TopologyDescription_Attributes_Args {
             struct_size: PJRT_TopologyDescription_Attributes_Args_STRUCT_SIZE as usize,
@@ -354,7 +391,10 @@ impl<'a> PJRTTopologyDescription<'a> {
             .rt
             .api()
             .PJRT_TopologyDescription_Serialize
-            .ok_or("PJRT_TopologyDescription_Serialize symbol not found")?;
+            .ok_or_else(|| {
+                self.error("PJRT_TopologyDescription_Serialize symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_TopologyDescription_Serialize_Args {
             struct_size: PJRT_TopologyDescription_Serialize_Args_STRUCT_SIZE as usize,
@@ -370,10 +410,14 @@ impl<'a> PJRTTopologyDescription<'a> {
             return Err(error_to_string(self.rt.api(), err));
         }
         if !args.serialized_topology.is_null() && args.serialized_topology_deleter.is_none() {
-            return Err("Serialize returned serialized_topology without a deleter".to_string());
+            return Err(self
+                .error("Serialize returned serialized_topology without a deleter")
+                .to_string());
         }
         if args.serialized_bytes.is_null() && args.serialized_bytes_size != 0 {
-            return Err("Serialize returned null bytes with nonzero size".to_string());
+            return Err(self
+                .error("Serialize returned null bytes with nonzero size")
+                .to_string());
         }
 
         let bytes = if args.serialized_bytes_size == 0 {
@@ -399,13 +443,18 @@ impl<'a> PJRTTopologyDescription<'a> {
 
     pub fn deserialize(rt: &'a PjrtRuntime, serialized_topology: &[u8]) -> Result<Self, String> {
         if serialized_topology.is_empty() {
-            return Err("serialized_topology must not be empty".to_string());
+            return Err(
+                PJRTError::invalid_arg(rt, "serialized_topology must not be empty").to_string(),
+            );
         }
 
         let f = rt
             .api()
             .PJRT_TopologyDescription_Deserialize
-            .ok_or("PJRT_TopologyDescription_Deserialize symbol not found")?;
+            .ok_or_else(|| {
+                PJRTError::invalid_arg(rt, "PJRT_TopologyDescription_Deserialize symbol not found")
+                    .to_string()
+            })?;
 
         let mut args = PJRT_TopologyDescription_Deserialize_Args {
             struct_size: PJRT_TopologyDescription_Deserialize_Args_STRUCT_SIZE as usize,
@@ -421,7 +470,11 @@ impl<'a> PJRTTopologyDescription<'a> {
             return Err(error_to_string(rt.api(), err));
         }
         if args.topology.is_null() {
-            return Err("PJRT_TopologyDescription_Deserialize returned null topology".to_string());
+            return Err(PJRTError::invalid_arg(
+                rt,
+                "PJRT_TopologyDescription_Deserialize returned null topology",
+            )
+            .to_string());
         }
 
         Ok(Self::new(rt, args.topology))
@@ -435,7 +488,7 @@ impl<'a> PJRTTopologyDescription<'a> {
     ) -> Result<*mut PJRT_Executable, String> {
         let topology = self.raw_checked()?;
         if client.is_null() {
-            return Err("PJRT_Client is null".to_string());
+            return Err(self.error("PJRT_Client is null").to_string());
         }
 
         let mut program_local = *program;
@@ -443,17 +496,21 @@ impl<'a> PJRTTopologyDescription<'a> {
             program_local.struct_size = std::mem::size_of::<PJRT_Program>();
         }
         if program_local.code_size > 0 && program_local.code.is_null() {
-            return Err("PJRT_Program.code is null but code_size is nonzero".to_string());
+            return Err(self
+                .error("PJRT_Program.code is null but code_size is nonzero")
+                .to_string());
         }
         if program_local.format_size > 0 && program_local.format.is_null() {
-            return Err("PJRT_Program.format is null but format_size is nonzero".to_string());
+            return Err(self
+                .error("PJRT_Program.format is null but format_size is nonzero")
+                .to_string());
         }
 
         let f = self
             .rt
             .api()
             .PJRT_Compile
-            .ok_or("PJRT_Compile symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Compile symbol not found").to_string())?;
 
         let (compile_options_ptr, compile_options_size) = if compile_options.is_empty() {
             (ptr::null(), 0usize)
@@ -480,7 +537,9 @@ impl<'a> PJRTTopologyDescription<'a> {
             return Err(error_to_string(self.rt.api(), err));
         }
         if args.executable.is_null() {
-            return Err("PJRT_Compile returned null executable".to_string());
+            return Err(self
+                .error("PJRT_Compile returned null executable")
+                .to_string());
         }
         Ok(args.executable)
     }
@@ -490,11 +549,10 @@ impl<'a> PJRTTopologyDescription<'a> {
             return Ok(());
         }
 
-        let f = self
-            .rt
-            .api()
-            .PJRT_Executable_Destroy
-            .ok_or("PJRT_Executable_Destroy symbol not found")?;
+        let f = self.rt.api().PJRT_Executable_Destroy.ok_or_else(|| {
+            self.error("PJRT_Executable_Destroy symbol not found")
+                .to_string()
+        })?;
 
         let mut args = PJRT_Executable_Destroy_Args {
             struct_size: PJRT_Executable_Destroy_Args_STRUCT_SIZE as usize,
@@ -511,11 +569,10 @@ impl<'a> PJRTTopologyDescription<'a> {
     }
 
     fn serialize_executable(&self, executable: *mut PJRT_Executable) -> Result<Vec<u8>, String> {
-        let f = self
-            .rt
-            .api()
-            .PJRT_Executable_Serialize
-            .ok_or("PJRT_Executable_Serialize symbol not found")?;
+        let f = self.rt.api().PJRT_Executable_Serialize.ok_or_else(|| {
+            self.error("PJRT_Executable_Serialize symbol not found")
+                .to_string()
+        })?;
 
         let mut args = PJRT_Executable_Serialize_Args {
             struct_size: PJRT_Executable_Serialize_Args_STRUCT_SIZE as usize,
@@ -533,19 +590,17 @@ impl<'a> PJRTTopologyDescription<'a> {
         }
 
         if !args.serialized_executable.is_null() && args.serialized_executable_deleter.is_none() {
-            return Err(
-                "PJRT_Executable_Serialize returned serialized_executable without deleter"
-                    .to_string(),
-            );
+            return Err(self
+                .error("PJRT_Executable_Serialize returned serialized_executable without deleter")
+                .to_string());
         }
 
         let result = if args.serialized_bytes_size == 0 {
             Ok(Vec::new())
         } else if args.serialized_bytes.is_null() {
-            Err(
-                "PJRT_Executable_Serialize returned null serialized_bytes with nonzero size"
-                    .to_string(),
-            )
+            Err(self
+                .error("PJRT_Executable_Serialize returned null serialized_bytes with nonzero size")
+                .to_string())
         } else {
             let bytes = unsafe {
                 from_raw_parts(
@@ -571,8 +626,10 @@ impl<'a> PJRTTopologyDescription<'a> {
         program: &PJRT_Program,
         compile_options: &[u8],
         overridden_compile_options: Option<&[u8]>,
-    ) -> Result<PJRTLoadedExecutable<'a>, String> {
-        let executable = self.compile(client, program, compile_options)?;
+    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+        let executable = self
+            .compile(client, program, compile_options)
+            .map_err(|e| self.error(e))?;
         let serialized = self.serialize_executable(executable);
         let destroy_result = self.destroy_executable(executable);
 
@@ -580,27 +637,27 @@ impl<'a> PJRTTopologyDescription<'a> {
             Ok(bytes) => bytes,
             Err(e) => {
                 if let Err(cleanup_err) = destroy_result {
-                    return Err(format!(
+                    return Err(self.error(format!(
                         "{e}; additionally failed to destroy compiled executable: {cleanup_err}"
-                    ));
+                    )));
                 }
-                return Err(e);
+                return Err(self.error(format!("Failed to serialize compiled executable: {e}")));
             }
         };
 
         if let Err(e) = destroy_result {
-            return Err(e);
+            return Err(self.error(format!("Failed to destroy compiled executable: {e}")));
         }
 
         if serialized.is_empty() {
-            return Err("serialized executable must not be empty".to_string());
+            return Err(self.error("Compiled executable serialized to empty bytes"));
         }
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_DeserializeAndLoad
-            .ok_or("PJRT_Executable_DeserializeAndLoad symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_DeserializeAndLoad symbol not found"))?;
 
         let (override_ptr, override_size) = match overridden_compile_options {
             None => (ptr::null(), 0usize),
@@ -621,12 +678,11 @@ impl<'a> PJRTTopologyDescription<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.loaded_executable.is_null() {
             return Err(
-                "PJRT_Executable_DeserializeAndLoad succeeded but returned null loaded_executable"
-                    .to_string(),
+                self.error("PJRT_Executable_DeserializeAndLoad returned null loaded_executable")
             );
         }
 
@@ -642,10 +698,10 @@ impl<'a> PJRTTopologyDescription<'a> {
         overridden_compile_options: Option<&[u8]>,
     ) -> Result<PJRTLoadedExecutable<'a>, String> {
         if program_code.is_empty() {
-            return Err("program_code must not be empty".to_string());
+            return Err(self.error("program_code must not be empty").to_string());
         }
         if format.is_empty() {
-            return Err("format must not be empty".to_string());
+            return Err(self.error("format must not be empty").to_string());
         }
 
         let program = PJRT_Program {
@@ -663,6 +719,7 @@ impl<'a> PJRTTopologyDescription<'a> {
             compile_options,
             overridden_compile_options,
         )
+        .map_err(|e| e.to_string())
     }
 }
 

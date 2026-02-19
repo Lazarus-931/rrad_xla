@@ -3,7 +3,7 @@ use crate::rrad_pjrt::device::PJRTDevice;
 
 pub struct Shape<'a> {
     pub dims: &'a [i64],
-    pub element_type: PJRT_Buffer_Type
+    pub element_type: PJRT_Buffer_Type,
 }
 
 pub enum HostBufferSemantics {
@@ -19,4 +19,3 @@ pub struct BufferFromHostOptions<'a> {
     pub layout: Option<&'a PJRT_Buffer_MemoryLayout>,
     pub semantics: HostBufferSemantics,
 }
-

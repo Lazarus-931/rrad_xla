@@ -1,5 +1,5 @@
-use rrad_pjrt::pjrt::topology_desc::PJRTTopologyDescription;
 use rrad_pjrt::pjrt_sys::PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
+use rrad_pjrt::rrad_pjrt::topology_desc::PJRTTopologyDescription;
 
 use super::tools::runtime_or_skip;
 
@@ -17,7 +17,7 @@ fn unified_topology_serialize_roundtrip_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let topology = client.topology_description()?;
     let before_name = topology.platform_name()?;
     let serialized = topology.serialize()?;
@@ -41,8 +41,10 @@ fn unified_compile_execute_metadata_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
-    let executable = client.compile(MODULE_ADD_ONE, "mlir", &[])?;
+    let client = rt.create_client()?;
+    let executable = client
+        .compile(MODULE_ADD_ONE, "mlir", &[])
+        .map_err(|e| e.to_string())?;
     assert!(
         executable.num_replicas()? >= 1,
         "num_replicas should be >= 1"
@@ -58,14 +60,14 @@ fn unified_compile_execute_metadata_smoke() -> Result<(), String> {
         "single-output add-one program should return one F32 output"
     );
 
-    let raw_devices = client.devices()?;
+    let raw_devices = client.devices().map_err(|e| e.to_string())?;
     assert!(!raw_devices.is_empty(), "client has no devices");
     let input = [3.0f32];
     let input_buffer = client.buffer_from_host_slice_copy(
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(raw_devices[0]),
+        Some(raw_devices[0].raw()),
     )?;
 
     let (outputs, done) = executable.execute(&[&input_buffer])?;

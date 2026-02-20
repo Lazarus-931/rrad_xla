@@ -1,4 +1,3 @@
-use rrad_pjrt::rrad_pjrt::error::PJRTError;
 use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 use std::path::{Path, PathBuf};
 

@@ -6,7 +6,6 @@ use rrad_pjrt::pjrt_sys::{
 };
 use rrad_pjrt::rrad_pjrt::buffer::PJRTBuffer;
 use rrad_pjrt::rrad_pjrt::client::PJRTClient;
-use rrad_pjrt::rrad_pjrt::error::PJRTError;
 
 fn make_test_buffer<'a>(client: &'a PJRTClient<'a>) -> Result<PJRTBuffer<'a>, String> {
     let device = client.lookup_addressable_device(0)?;
@@ -20,7 +19,7 @@ fn make_test_buffer<'a>(client: &'a PJRTClient<'a>) -> Result<PJRTBuffer<'a>, St
 }
 
 #[test]
-fn buffer_delete_smoke() -> Result<(), PJRTError<'static>> {
+fn buffer_delete_smoke() -> Result<(), String> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -29,12 +28,12 @@ fn buffer_delete_smoke() -> Result<(), PJRTError<'static>> {
     let buffer = make_test_buffer(&client)?;
 
     assert!(
-        !buffer.is_deleted()?,
+        !buffer.is_deleted().map_err(|e| e.to_string())?,
         "newly-created buffer should not be deleted"
     );
-    buffer.delete()?;
+    buffer.delete().map_err(|e| e.to_string())?;
     assert!(
-        buffer.is_deleted()?,
+        buffer.is_deleted().map_err(|e| e.to_string())?,
         "buffer should report deleted after delete"
     );
     Ok(())
@@ -107,8 +106,8 @@ fn buffer_on_device_size_and_element_type_smoke() -> Result<(), String> {
     let client = rt.create_client()?;
     let buffer = make_test_buffer(&client)?;
 
-    let element_type = buffer.element_type()?;
-    let dims = buffer.dimensions()?;
+    let element_type = buffer.element_type().map_err(|e| e.to_string())?;
+    let dims = buffer.dimensions().map_err(|e| e.to_string())?;
     let size = buffer.on_device_size_in_bytes()?;
 
     assert_eq!(
@@ -134,7 +133,7 @@ fn buffer_to_host_async_roundtrip_smoke() -> Result<(), String> {
     let mut out_bytes = [0u8; 4 * std::mem::size_of::<f32>()];
 
     let done = buffer.to_host_buffer_async(&mut out_bytes)?;
-    done.await_ready()?;
+    done.await_ready().map_err(|e| e.to_string())?;
     done.ok()?;
 
     let mut out = [0.0_f32; 4];

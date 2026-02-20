@@ -5,7 +5,6 @@ use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_ExecuteContext_Destroy_Args,
     PJRT_ExecuteContext_Destroy_Args_STRUCT_SIZE,
 };
-use rrad_pjrt::rrad_pjrt::error::PJRTError;
 use rrad_pjrt::rrad_pjrt::execute_context::PJRTExecuteContext;
 use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 
@@ -59,7 +58,7 @@ fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
 }
 
 #[test]
-fn compile_and_execute_smoke() -> Result<(), PJRTError> {
+fn compile_and_execute_smoke() -> Result<(), String> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -74,21 +73,22 @@ fn compile_and_execute_smoke() -> Result<(), PJRTError> {
 
     let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
 
-    let execute_context = PJRTExecuteContext::create(&rt)?;
-    let raw_devices = client.devices()?;
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
+    let raw_devices = client.devices().map_err(|e| e.to_string())?;
     assert!(!raw_devices.is_empty(), "client has no devices");
-    let device = raw_devices[0];
+    let device = &raw_devices[0];
 
     let input = [41.0f32];
     let input_buffer = client.buffer_from_host_slice_copy(
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(device.raw),
+        Some(device.raw()),
     )?;
 
-    let (outputs, done) =
-        executable.execute_with_context(&[&input_buffer], Some(&execute_context))?;
+    let (outputs, done) = executable
+        .execute_with_context(&[&input_buffer], Some(&execute_context))
+        .map_err(|e| e.to_string())?;
     done.ok()?;
 
     if outputs.len() != 1 {
@@ -124,7 +124,7 @@ fn execute_with_context_fails_on_missing_args() -> Result<(), String> {
 
     let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
 
-    let execute_context = PJRTExecuteContext::create(&rt)?;
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
     let result = executable.execute_with_context(&[], Some(&execute_context));
     if result.is_ok() {
         return Err("expected execute_with_context to fail with missing arguments".to_string());
@@ -135,7 +135,7 @@ fn execute_with_context_fails_on_missing_args() -> Result<(), String> {
 
 #[test]
 fn non_empty_compile_options_topology_smoke() -> Result<(), String> {
-    let Some(rt) = runtime_or_skip()? else {
+    let Some(rt) = runtime_or_skip().map_err(|e| e.to_string())? else {
         return Ok(());
     };
 
@@ -147,8 +147,10 @@ fn non_empty_compile_options_topology_smoke() -> Result<(), String> {
         "expected topology to include at least one device description"
     );
 
-    let baseline = client.compile(MODULE_ADD_ONE, "mlir", &[])?;
-    let compile_options = baseline.get_compile_options()?;
+    let baseline = client
+        .compile(MODULE_ADD_ONE, "mlir", &[])
+        .map_err(|e| e.to_string())?;
+    let compile_options = baseline.get_compile_options().map_err(|e| e.to_string())?;
     if compile_options.is_empty() {
         eprintln!("Skipping non_empty_compile_options_topology_smoke: runtime returned empty compile options");
         return Ok(());
@@ -156,11 +158,11 @@ fn non_empty_compile_options_topology_smoke() -> Result<(), String> {
 
     let executable =
         client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &compile_options, None)?;
-    let execute_context = PJRTExecuteContext::create(&rt)?;
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
 
-    let raw_devices = client.devices()?;
+    let raw_devices = client.devices().map_err(|e| e.to_string())?;
     assert!(!raw_devices.is_empty(), "client has no devices");
-    let device = raw_devices[0];
+    let device = &raw_devices[0];
 
     let input = [41.0f32];
     let input_buffer = client.buffer_from_host_slice_copy(
@@ -170,8 +172,9 @@ fn non_empty_compile_options_topology_smoke() -> Result<(), String> {
         Some(device.raw()),
     )?;
 
-    let (outputs, done) =
-        executable.execute_with_context(&[&input_buffer], Some(&execute_context))?;
+    let (outputs, done) = executable
+        .execute_with_context(&[&input_buffer], Some(&execute_context))
+        .map_err(|e| e.to_string())?;
     done.ok()?;
     if outputs.len() != 1 {
         return Err(format!(
@@ -200,21 +203,22 @@ fn multi_output_execute_with_context_smoke() -> Result<(), String> {
     let _topology = client.topology_description()?;
     let executable = client.compile_on_topology_code(MODULE_TWO_OUTPUTS, "mlir", &[], None)?;
 
-    let execute_context = PJRTExecuteContext::create(&rt)?;
-    let raw_devices = client.devices()?;
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
+    let raw_devices = client.devices().map_err(|e| e.to_string())?;
     assert!(!raw_devices.is_empty(), "client has no devices");
-    let device = raw_devices[0];
+    let device = &raw_devices[0];
 
     let input = [41.0f32];
     let input_buffer = client.buffer_from_host_slice_copy(
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(device),
+        Some(device.raw()),
     )?;
 
-    let (outputs, done) =
-        executable.execute_with_context(&[&input_buffer], Some(&execute_context))?;
+    let (outputs, done) = executable
+        .execute_with_context(&[&input_buffer], Some(&execute_context))
+        .map_err(|e| e.to_string())?;
     done.ok()?;
 
     if outputs.len() != 2 {
@@ -249,11 +253,11 @@ fn execute_with_options_launch_id_and_device_smoke() -> Result<(), String> {
 
     let client = rt.create_client()?;
     let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
-    let execute_context = PJRTExecuteContext::create(&rt)?;
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
 
-    let raw_devices = client.devices()?;
+    let raw_devices = client.devices().map_err(|e| e.to_string())?;
     assert!(!raw_devices.is_empty(), "client has no devices");
-    let device = raw_devices[0];
+    let device = &raw_devices[0];
 
     let input = [41.0f32];
     let input_buffer = client.buffer_from_host_slice_copy(
@@ -263,15 +267,17 @@ fn execute_with_options_launch_id_and_device_smoke() -> Result<(), String> {
         Some(device.raw()),
     )?;
 
-    let (outputs, done) = executable.execute_with_options(
-        &[&input_buffer],
-        Some(&execute_context),
-        0,
-        0,
-        1234,
-        &[],
-        device.raw(),
-    )?;
+    let (outputs, done) = executable
+        .execute_with_options(
+            &[&input_buffer],
+            Some(&execute_context),
+            0,
+            0,
+            1234,
+            &[],
+            device.raw(),
+        )
+        .map_err(|e| e.to_string())?;
     done.ok()?;
 
     if outputs.len() != 1 {
@@ -299,18 +305,18 @@ fn execute_with_options_rejects_callback_counts() -> Result<(), String> {
 
     let client = rt.create_client()?;
     let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
-    let execute_context = PJRTExecuteContext::create(&rt)?;
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
 
-    let raw_devices = client.devices()?;
+    let raw_devices = client.devices().map_err(|e| e.to_string())?;
     assert!(!raw_devices.is_empty(), "client has no devices");
-    let device = raw_devices[0];
+    let device = &raw_devices[0];
 
     let input = [41.0f32];
     let input_buffer = client.buffer_from_host_slice_copy(
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(device.raw),
+        Some(device.raw()),
     )?;
 
     let result = executable.execute_with_options(
@@ -331,17 +337,17 @@ fn execute_with_options_rejects_callback_counts() -> Result<(), String> {
 
 #[test]
 fn execute_with_options_rejects_negative_non_donatable_indices() -> Result<(), String> {
-    let Some(rt) = runtime_or_skip()? else {
+    let Some(rt) = runtime_or_skip().map_err(|e| e.to_string())? else {
         return Ok(());
     };
 
     let client = rt.create_client()?;
     let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
-    let execute_context = PJRTExecuteContext::create(&rt)?;
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
 
-    let raw_devices = client.devices()?;
+    let raw_devices = client.devices().map_err(|e| e.to_string())?;
     assert!(!raw_devices.is_empty(), "client has no devices");
-    let device = raw_devices[0];
+    let device = &raw_devices[0];
 
     let input = [41.0f32];
     let input_buffer = client.buffer_from_host_slice_copy(
@@ -372,15 +378,15 @@ fn execute_with_options_rejects_negative_non_donatable_indices() -> Result<(), S
 
 #[test]
 fn execute_without_context_smoke() -> Result<(), String> {
-    let Some(rt) = runtime_or_skip()? else {
+    let Some(rt) = runtime_or_skip().map_err(|e| e.to_string())? else {
         return Ok(());
     };
 
     let client = rt.create_client()?;
     let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
-    let raw_devices = client.devices()?;
+    let raw_devices = client.devices().map_err(|e| e.to_string())?;
     assert!(!raw_devices.is_empty(), "client has no devices");
-    let device = raw_devices[0];
+    let device = &raw_devices[0];
 
     let input = [5.0f32];
     let input_buffer = client.buffer_from_host_slice_copy(
@@ -390,7 +396,9 @@ fn execute_without_context_smoke() -> Result<(), String> {
         Some(device.raw()),
     )?;
 
-    let (outputs, done) = executable.execute_with_context(&[&input_buffer], None)?;
+    let (outputs, done) = executable
+        .execute_with_context(&[&input_buffer], None)
+        .map_err(|e| e.to_string())?;
     done.ok()?;
     if outputs.len() != 1 {
         return Err(format!(
@@ -414,7 +422,7 @@ fn execute_context_into_raw_manual_destroy_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let context = PJRTExecuteContext::create(&rt)?;
+    let context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
     let raw = context.into_raw();
     assert!(!raw.is_null(), "raw execute context should not be null");
 

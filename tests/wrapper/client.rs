@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Error_Code_PJRT_Error_Code_OK,
 };
-use rrad_pjrt::rrad_pjrt::device::PJRTDevice;
 use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 
 fn resolve_plugin_path() -> Option<PathBuf> {
@@ -46,7 +45,7 @@ fn client_basic_metadata_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let platform_name = client.platform_name()?;
     let platform_version = client.platform_version()?;
     let process_index = client.process_index()?;
@@ -69,11 +68,11 @@ fn client_lookup_first_device_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
-    let raw_devices = client.devices()?;
+    let client = rt.create_client()?;
+    let raw_devices = client.devices().map_err(|e| e.to_string())?;
     assert!(!raw_devices.is_empty(), "expected at least one device");
 
-    let first_device_ref = PJRTDevice::new(&rt, raw_devices[0]);
+    let first_device_ref = &raw_devices[0];
     let first_id = first_device_ref.id()?;
     let local_hardware_id = first_device_ref.local_hardware_id()?;
 
@@ -94,7 +93,7 @@ fn client_topology_and_assignment_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let topology = client.topology_description()?;
     let platform_name = topology.platform_name()?;
     let descs = topology.device_descriptions()?;
@@ -122,7 +121,7 @@ fn client_fulfill_alias_buffer_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let device = client.lookup_addressable_device(0)?;
 
     let dims = [4_i64];
@@ -130,7 +129,8 @@ fn client_fulfill_alias_buffer_smoke() -> Result<(), String> {
     let (_alias_buf, cb) = client.create_alias_buffer(&dims, element_type, None, None)?;
 
     let host = [1.0_f32, 2.0, 3.0, 4.0];
-    let real = client.buffer_from_host_slice_copy(&host, element_type, &dims, Some(device))?;
+    let real =
+        client.buffer_from_host_slice_copy(&host, element_type, &dims, Some(device.raw()))?;
 
     client.fulfill_alias_buffer(
         cb,
@@ -147,7 +147,7 @@ fn client_platform_name_matches_topology_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let platform_name = client.platform_name()?;
     let topology_platform_name = client.topology_platform_name()?;
 
@@ -172,21 +172,14 @@ fn client_addressable_memory_refs_match_raw_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let raw_memories = client.addressable_memories()?;
-    let memory_refs = client.addressable_memory_refs()?;
-
     assert!(
         !raw_memories.is_empty(),
         "expected at least one addressable memory"
     );
-    assert_eq!(
-        raw_memories.len(),
-        memory_refs.len(),
-        "raw memory and memory ref counts should match"
-    );
 
-    for memory in &memory_refs {
+    for memory in &raw_memories {
         let kind = memory.kind()?;
         let id = memory.id()?;
         assert!(!kind.is_empty(), "memory kind should not be empty");

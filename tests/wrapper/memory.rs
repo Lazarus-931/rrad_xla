@@ -3,12 +3,13 @@ use super::tools::runtime_or_skip;
 
 
 #[test]
-fn memory_id_smoke() -> Result<(), String> {
+fn memory_id_smoke<'a>() -> Result<(), PJRTError<'a>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
 
-    let client = rt.create_client()?;
+    let client = rt.create_client()
+        .map_err(|e| PJRTError::invalid_arg(&rt, "Failed to create client"))?;
     let memories = client.addressable_memories()?;
     assert!(
         !memories.is_empty(),
@@ -26,12 +27,13 @@ fn memory_id_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn memory_kind_smoke() -> Result<(), String> {
+fn memory_kind_smoke<'a>() -> Result<(), PJRTError<'a>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
 
-    let client = rt.create_client()?;
+    let client = rt.create_client()
+        .map_err(|e| PJRTError::invalid_arg(&rt, "Failed to create client"))?;
     let memories = client.addressable_memories()?;
     assert!(
         !memories.is_empty(),
@@ -49,12 +51,13 @@ fn memory_kind_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn memory_to_string_smoke() -> Result<(), String> {
+fn memory_to_string_smoke<'a>() -> Result<(), PJRTError<'a>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
 
-    let client = rt.create_client()?;
+    let client = rt.create_client()
+        .map_err(|e| PJRTError::invalid_arg(&rt, "Failed to create client"))?;
     let memories = client.addressable_memories()?;
     assert!(
         !memories.is_empty(),
@@ -73,12 +76,13 @@ fn memory_to_string_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn memory_debug_string_smoke() -> Result<(), String> {
+fn memory_debug_string_smoke<'a>() -> Result<(), PJRTError<'a>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
 
-    let client = rt.create_client()?;
+    let client = rt.create_client()
+        .map_err(|e| PJRTError::invalid_arg(&rt, "Failed to create client"))?;
     let memories = client.addressable_memories()?;
     assert!(
         !memories.is_empty(),
@@ -97,12 +101,13 @@ fn memory_debug_string_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn memory_addressable_by_device_smoke() -> Result<(), String> {
+fn memory_addressable_by_device_smoke<'a>() -> Result<(), PJRTError<'a>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
 
-    let client = rt.create_client()?;
+    let client = rt.create_client()
+        .map_err(|e| PJRTError::invalid_arg(&rt, "Failed to create client"))?;
     let memories = client.addressable_memories()?;
     assert!(
         !memories.is_empty(),

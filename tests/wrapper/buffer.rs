@@ -6,8 +6,9 @@ use rrad_pjrt::pjrt_sys::{
 };
 use rrad_pjrt::rrad_pjrt::buffer::PJRTBuffer;
 use rrad_pjrt::rrad_pjrt::client::PJRTClient;
+use rrad_pjrt::rrad_pjrt::error::PJRTError;
 
-fn make_test_buffer<'a>(client: &'a PJRTClient<'a>) -> Result<PJRTBuffer<'a>, String> {
+fn make_test_buffer<'a>(client: &'a PJRTClient<'a>) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
     let device = client.lookup_addressable_device(0)?;
     let host = [1.0_f32, 2.0, 3.0, 4.0];
     client.buffer_from_host_slice_copy(
@@ -19,7 +20,7 @@ fn make_test_buffer<'a>(client: &'a PJRTClient<'a>) -> Result<PJRTBuffer<'a>, St
 }
 
 #[test]
-fn buffer_delete_smoke() -> Result<(), String> {
+fn buffer_delete_smoke() -> Result<(), PJRTError> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -40,7 +41,7 @@ fn buffer_delete_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn buffer_get_memory_layout_smoke() -> Result<(), String> {
+fn buffer_get_memory_layout_smoke() -> Result<(), PJRTError<'a>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -60,7 +61,7 @@ fn buffer_get_memory_layout_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn buffer_dynamic_dims_smoke() -> Result<(), String> {
+fn buffer_dynamic_dims_smoke() -> Result<(), PJRTError<'a>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -85,7 +86,7 @@ fn buffer_dynamic_dims_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn buffer_external_references_smoke() -> Result<(), String> {
+fn buffer_external_references_smoke() -> Result<(), PJRTError<'a>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -98,7 +99,7 @@ fn buffer_external_references_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn buffer_on_device_size_and_element_type_smoke() -> Result<(), String> {
+fn buffer_on_device_size_and_element_type_smoke() -> Result<(), PJRTError<'a>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -123,7 +124,7 @@ fn buffer_on_device_size_and_element_type_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn buffer_to_host_async_roundtrip_smoke() -> Result<(), String> {
+fn buffer_to_host_async_roundtrip_smoke() -> Result<(), PJRTError<'a>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };

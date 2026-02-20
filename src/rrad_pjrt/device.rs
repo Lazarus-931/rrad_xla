@@ -78,7 +78,7 @@ impl<'a> PJRTDevice<'a> {
 
 
 
-    pub(crate) fn raw(&self) -> *mut PJRT_Device {
+    pub fn raw(&self) -> *mut PJRT_Device {
         self.raw
     }
 

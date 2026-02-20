@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use rrad_pjrt::pjrt::loader::PjrtRuntime;
+use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 use rrad_pjrt::pjrt_sys::PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
 
 const MODULE_ADD_ONE: &str = r#"module {
@@ -43,32 +43,38 @@ fn cpu_end_to_end_compile_execute_download() -> Result<(), String> {
 
     let rt = PjrtRuntime::load(&plugin_path)?;
     rt.initialize_plugin()?;
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client().map_err(|e| e.to_string())?;
 
-    let raw_devices = client.devices()?;
+    let raw_devices = client.devices().map_err(|e| e.to_string())?;
     if raw_devices.is_empty() {
         return Err("client has no devices".to_string());
     }
-    let device = raw_devices[0];
+    let device = &raw_devices[0];
 
-    let executable = client.compile(MODULE_ADD_ONE, "mlir", &[])?;
+    let executable = client
+        .compile(MODULE_ADD_ONE, "mlir", &[])
+        .map_err(|e| e.to_string())?;
 
     let input = [41.0f32];
     let input_buffer = client.buffer_from_host_slice_copy(
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(device),
-    )?;
+        Some(device.raw()),
+    ).map_err(|e| e.to_string())?;
 
-    let (outputs, done) = executable.execute(&[&input_buffer])?;
+    let (outputs, done) = executable
+        .execute(&[&input_buffer])
+        .map_err(|e| e.to_string())?;
     done.ok()?;
     if outputs.len() != 1 {
         return Err(format!("expected exactly 1 output, got {}", outputs.len()));
     }
 
     let mut out_bytes = [0u8; std::mem::size_of::<f32>()];
-    outputs[0].to_host_buffer_blocking(&mut out_bytes)?;
+    outputs[0]
+        .to_host_buffer_blocking(&mut out_bytes)
+        .map_err(|e| e.to_string())?;
     let out = f32::from_le_bytes(out_bytes);
     if (out - 42.0).abs() > 1e-6 {
         return Err(format!("expected 42.0, got {out}"));

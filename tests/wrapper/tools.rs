@@ -1,6 +1,38 @@
-use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
-use std::path::{Path, PathBuf};
 use rrad_pjrt::rrad_pjrt::error::PJRTError;
+use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
+use std::fmt;
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone)]
+pub struct TestError(pub String);
+
+pub type TestResult<T = ()> = Result<T, TestError>;
+
+impl fmt::Display for TestError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for TestError {}
+
+impl From<String> for TestError {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&str> for TestError {
+    fn from(value: &str) -> Self {
+        Self(value.to_owned())
+    }
+}
+
+impl<'a> From<PJRTError<'a>> for TestError {
+    fn from(value: PJRTError<'a>) -> Self {
+        Self(value.to_string())
+    }
+}
 
 pub fn resolve_plugin_path() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PJRT_PLUGIN") {

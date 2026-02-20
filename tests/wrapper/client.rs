@@ -4,6 +4,7 @@ use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Error_Code_PJRT_Error_Code_OK,
 };
 use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
+use super::tools::TestResult;
 
 fn resolve_plugin_path() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PJRT_PLUGIN") {
@@ -40,7 +41,7 @@ fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
 }
 
 #[test]
-fn client_basic_metadata_smoke() -> Result<(), String> {
+fn client_basic_metadata_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -63,7 +64,7 @@ fn client_basic_metadata_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn client_lookup_first_device_smoke() -> Result<(), String> {
+fn client_lookup_first_device_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -88,7 +89,7 @@ fn client_lookup_first_device_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn client_topology_and_assignment_smoke() -> Result<(), String> {
+fn client_topology_and_assignment_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -116,7 +117,7 @@ fn client_topology_and_assignment_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn client_fulfill_alias_buffer_smoke() -> Result<(), String> {
+fn client_fulfill_alias_buffer_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -142,7 +143,7 @@ fn client_fulfill_alias_buffer_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn client_platform_name_matches_topology_smoke() -> Result<(), String> {
+fn client_platform_name_matches_topology_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -167,7 +168,7 @@ fn client_platform_name_matches_topology_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn client_addressable_memory_refs_match_raw_smoke() -> Result<(), String> {
+fn client_addressable_memory_refs_match_raw_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };

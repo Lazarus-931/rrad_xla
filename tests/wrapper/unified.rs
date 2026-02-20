@@ -1,7 +1,7 @@
 use rrad_pjrt::pjrt_sys::PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
 use rrad_pjrt::rrad_pjrt::topology_desc::PJRTTopologyDescription;
 
-use super::tools::runtime_or_skip;
+use super::tools::{runtime_or_skip, TestResult};
 
 const MODULE_ADD_ONE: &str = r#"module {
 func.func @main(%arg0: tensor<f32>) -> tensor<f32> {
@@ -12,7 +12,7 @@ func.func @main(%arg0: tensor<f32>) -> tensor<f32> {
 }}"#;
 
 #[test]
-fn unified_topology_serialize_roundtrip_smoke() -> Result<(), String> {
+fn unified_topology_serialize_roundtrip_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -36,7 +36,7 @@ fn unified_topology_serialize_roundtrip_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn unified_compile_execute_metadata_smoke() -> Result<(), String> {
+fn unified_compile_execute_metadata_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -78,7 +78,7 @@ fn unified_compile_execute_metadata_smoke() -> Result<(), String> {
     outputs[0].to_host_buffer_blocking(&mut out_bytes)?;
     let out = f32::from_le_bytes(out_bytes);
     if (out - 4.0).abs() > 1e-6 {
-        return Err(format!("expected 4.0, got {out}"));
+        return Err(format!("expected 4.0, got {out}").into());
     }
     Ok(())
 }

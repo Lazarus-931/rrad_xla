@@ -1,4 +1,5 @@
 use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
+use super::tools::TestResult;
 use std::path::{Path, PathBuf};
 
 fn resolve_plugin_path() -> Option<PathBuf> {
@@ -36,7 +37,7 @@ fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
 }
 
 #[test]
-fn general_hardware_smoke() -> Result<(), String> {
+fn general_hardware_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -57,7 +58,7 @@ fn general_hardware_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn device_basic_metadata_smoke() -> Result<(), String> {
+fn device_basic_metadata_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -80,7 +81,7 @@ fn device_basic_metadata_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn device_description_smoke() -> Result<(), String> {
+fn device_description_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -105,7 +106,7 @@ fn device_description_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn device_is_addressable_smoke() -> Result<(), String> {
+fn device_is_addressable_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -123,7 +124,7 @@ fn device_is_addressable_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn device_default_memory_in_addressable_memories_smoke() -> Result<(), String> {
+fn device_default_memory_in_addressable_memories_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -148,7 +149,7 @@ fn device_default_memory_in_addressable_memories_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn device_debug_and_process_index_smoke() -> Result<(), String> {
+fn device_debug_and_process_index_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };

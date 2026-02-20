@@ -8,6 +8,7 @@ use rrad_pjrt::pjrt_sys::{
 };
 use rrad_pjrt::rrad_pjrt::event::PJRTEvent;
 use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
+use super::tools::TestResult;
 
 fn resolve_plugin_path() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PJRT_PLUGIN") {
@@ -44,7 +45,7 @@ fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
 }
 
 #[test]
-fn event_create_and_is_ready_smoke() -> Result<(), String> {
+fn event_create_and_is_ready_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -58,7 +59,7 @@ fn event_create_and_is_ready_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn event_on_ready_requires_callback() -> Result<(), String> {
+fn event_on_ready_requires_callback() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -76,7 +77,7 @@ fn event_on_ready_requires_callback() -> Result<(), String> {
 }
 
 #[test]
-fn event_from_buffer_ready_event_smoke() -> Result<(), String> {
+fn event_from_buffer_ready_event_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -84,7 +85,7 @@ fn event_from_buffer_ready_event_smoke() -> Result<(), String> {
     let client = rt.create_client()?;
     let devices = client.devices().map_err(|e| e.to_string())?;
     if devices.is_empty() {
-        return Err("expected at least one device".to_string());
+        return Err("expected at least one device".to_string().into());
     }
 
     let host = [1.0f32, 2.0f32, 3.0f32, 4.0f32];
@@ -117,7 +118,7 @@ unsafe extern "C" fn mark_event_ready(
 }
 
 #[test]
-fn event_on_ready_callback_invoked_smoke() -> Result<(), String> {
+fn event_on_ready_callback_invoked_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -125,7 +126,7 @@ fn event_on_ready_callback_invoked_smoke() -> Result<(), String> {
     let client = rt.create_client()?;
     let devices = client.devices().map_err(|e| e.to_string())?;
     if devices.is_empty() {
-        return Err("expected at least one device".to_string());
+        return Err("expected at least one device".to_string().into());
     }
 
     let host = [10.0f32, 20.0f32];
@@ -155,7 +156,7 @@ fn event_on_ready_callback_invoked_smoke() -> Result<(), String> {
 }
 
 #[test]
-fn event_into_raw_manual_destroy_smoke() -> Result<(), String> {
+fn event_into_raw_manual_destroy_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -175,7 +176,7 @@ fn event_into_raw_manual_destroy_smoke() -> Result<(), String> {
     };
     let err = unsafe { destroy(&mut args) };
     if !err.is_null() {
-        return Err("PJRT_Event_Destroy failed for raw event".to_string());
+        return Err("PJRT_Event_Destroy failed for raw event".to_string().into());
     }
     Ok(())
 }

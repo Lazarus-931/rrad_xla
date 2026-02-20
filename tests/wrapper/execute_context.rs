@@ -7,6 +7,7 @@ use rrad_pjrt::pjrt_sys::{
 };
 use rrad_pjrt::rrad_pjrt::execute_context::PJRTExecuteContext;
 use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
+use super::tools::TestResult;
 
 const MODULE_ADD_ONE: &str = r#"module {
 func.func @main(%arg0: tensor<f32>) -> tensor<f32> {
@@ -58,7 +59,7 @@ fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
 }
 
 #[test]
-fn compile_and_execute_smoke() -> Result<(), String> {
+fn compile_and_execute_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -95,21 +96,22 @@ fn compile_and_execute_smoke() -> Result<(), String> {
         return Err(format!(
             "expected exactly one output buffer, got {}",
             outputs.len()
-        ));
+        )
+        .into());
     }
 
     let mut out_bytes = [0u8; std::mem::size_of::<f32>()];
     outputs[0].to_host_buffer_blocking(&mut out_bytes)?;
     let out = f32::from_le_bytes(out_bytes);
     if (out - 42.0).abs() > 1e-6 {
-        return Err(format!("expected 42.0, got {out}"));
+        return Err(format!("expected 42.0, got {out}").into());
     }
 
     Ok(())
 }
 
 #[test]
-fn execute_with_context_fails_on_missing_args() -> Result<(), String> {
+fn execute_with_context_fails_on_missing_args() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -127,14 +129,14 @@ fn execute_with_context_fails_on_missing_args() -> Result<(), String> {
     let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
     let result = executable.execute_with_context(&[], Some(&execute_context));
     if result.is_ok() {
-        return Err("expected execute_with_context to fail with missing arguments".to_string());
+        return Err("expected execute_with_context to fail with missing arguments".to_string().into());
     }
 
     Ok(())
 }
 
 #[test]
-fn non_empty_compile_options_topology_smoke() -> Result<(), String> {
+fn non_empty_compile_options_topology_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip().map_err(|e| e.to_string())? else {
         return Ok(());
     };
@@ -180,21 +182,22 @@ fn non_empty_compile_options_topology_smoke() -> Result<(), String> {
         return Err(format!(
             "expected exactly one output buffer, got {}",
             outputs.len()
-        ));
+        )
+        .into());
     }
 
     let mut out_bytes = [0u8; std::mem::size_of::<f32>()];
     outputs[0].to_host_buffer_blocking(&mut out_bytes)?;
     let out = f32::from_le_bytes(out_bytes);
     if (out - 42.0).abs() > 1e-6 {
-        return Err(format!("expected 42.0, got {out}"));
+        return Err(format!("expected 42.0, got {out}").into());
     }
 
     Ok(())
 }
 
 #[test]
-fn multi_output_execute_with_context_smoke() -> Result<(), String> {
+fn multi_output_execute_with_context_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -225,28 +228,29 @@ fn multi_output_execute_with_context_smoke() -> Result<(), String> {
         return Err(format!(
             "expected exactly two output buffers, got {}",
             outputs.len()
-        ));
+        )
+        .into());
     }
 
-    let mut first_bytes = [0u8; std::mem::size_of::<f32>()];
+    let mut first_bytes = [0u8; size_of::<f32>()];
     outputs[0].to_host_buffer_blocking(&mut first_bytes)?;
     let first = f32::from_le_bytes(first_bytes);
     if (first - 42.0).abs() > 1e-6 {
-        return Err(format!("expected first output 42.0, got {first}"));
+        return Err(format!("expected first output 42.0, got {first}").into());
     }
 
     let mut second_bytes = [0u8; std::mem::size_of::<f32>()];
     outputs[1].to_host_buffer_blocking(&mut second_bytes)?;
     let second = f32::from_le_bytes(second_bytes);
     if (second - 41.0).abs() > 1e-6 {
-        return Err(format!("expected second output 41.0, got {second}"));
+        return Err(format!("expected second output 41.0, got {second}").into());
     }
 
     Ok(())
 }
 
 #[test]
-fn execute_with_options_launch_id_and_device_smoke() -> Result<(), String> {
+fn execute_with_options_launch_id_and_device_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -284,21 +288,22 @@ fn execute_with_options_launch_id_and_device_smoke() -> Result<(), String> {
         return Err(format!(
             "expected exactly one output buffer, got {}",
             outputs.len()
-        ));
+        )
+        .into());
     }
 
     let mut out_bytes = [0u8; std::mem::size_of::<f32>()];
     outputs[0].to_host_buffer_blocking(&mut out_bytes)?;
     let out = f32::from_le_bytes(out_bytes);
     if (out - 42.0).abs() > 1e-6 {
-        return Err(format!("expected 42.0, got {out}"));
+        return Err(format!("expected 42.0, got {out}").into());
     }
 
     Ok(())
 }
 
 #[test]
-fn execute_with_options_rejects_callback_counts() -> Result<(), String> {
+fn execute_with_options_rejects_callback_counts() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -329,14 +334,14 @@ fn execute_with_options_rejects_callback_counts() -> Result<(), String> {
         null_mut(),
     );
     if result.is_ok() {
-        return Err("expected execute_with_options to reject nonzero callback counts".to_string());
+        return Err("expected execute_with_options to reject nonzero callback counts".to_string().into());
     }
 
     Ok(())
 }
 
 #[test]
-fn execute_with_options_rejects_negative_non_donatable_indices() -> Result<(), String> {
+fn execute_with_options_rejects_negative_non_donatable_indices() -> TestResult {
     let Some(rt) = runtime_or_skip().map_err(|e| e.to_string())? else {
         return Ok(());
     };
@@ -369,7 +374,8 @@ fn execute_with_options_rejects_negative_non_donatable_indices() -> Result<(), S
     if result.is_ok() {
         return Err(
             "expected execute_with_options to reject negative non_donatable_input_indices"
-                .to_string(),
+                .to_string()
+                .into(),
         );
     }
 
@@ -377,7 +383,7 @@ fn execute_with_options_rejects_negative_non_donatable_indices() -> Result<(), S
 }
 
 #[test]
-fn execute_without_context_smoke() -> Result<(), String> {
+fn execute_without_context_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip().map_err(|e| e.to_string())? else {
         return Ok(());
     };
@@ -404,20 +410,21 @@ fn execute_without_context_smoke() -> Result<(), String> {
         return Err(format!(
             "expected exactly one output buffer, got {}",
             outputs.len()
-        ));
+        )
+        .into());
     }
 
     let mut out_bytes = [0u8; std::mem::size_of::<f32>()];
     outputs[0].to_host_buffer_blocking(&mut out_bytes)?;
     let out = f32::from_le_bytes(out_bytes);
     if (out - 6.0).abs() > 1e-6 {
-        return Err(format!("expected 6.0, got {out}"));
+        return Err(format!("expected 6.0, got {out}").into());
     }
     Ok(())
 }
 
 #[test]
-fn execute_context_into_raw_manual_destroy_smoke() -> Result<(), String> {
+fn execute_context_into_raw_manual_destroy_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -437,7 +444,7 @@ fn execute_context_into_raw_manual_destroy_smoke() -> Result<(), String> {
     };
     let err = unsafe { destroy(&mut args) };
     if !err.is_null() {
-        return Err("PJRT_ExecuteContext_Destroy failed for raw execute context".to_string());
+        return Err("PJRT_ExecuteContext_Destroy failed for raw execute context".to_string().into());
     }
     Ok(())
 }

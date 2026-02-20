@@ -1,4 +1,4 @@
-use super::tools::runtime_or_skip;
+use super::tools::{runtime_or_skip, TestResult};
 use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_MemoryLayout_Type_PJRT_Buffer_MemoryLayout_Type_Strides,
     PJRT_Buffer_MemoryLayout_Type_PJRT_Buffer_MemoryLayout_Type_Tiled,
@@ -20,7 +20,7 @@ fn make_test_buffer<'a>(client: &'a PJRTClient<'a>) -> Result<PJRTBuffer<'a>, PJ
 }
 
 #[test]
-fn buffer_delete_smoke() -> Result<(), PJRTError> {
+fn buffer_delete_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -41,7 +41,7 @@ fn buffer_delete_smoke() -> Result<(), PJRTError> {
 }
 
 #[test]
-fn buffer_get_memory_layout_smoke() -> Result<(), PJRTError<'a>> {
+fn buffer_get_memory_layout_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -61,7 +61,7 @@ fn buffer_get_memory_layout_smoke() -> Result<(), PJRTError<'a>> {
 }
 
 #[test]
-fn buffer_dynamic_dims_smoke() -> Result<(), PJRTError<'a>> {
+fn buffer_dynamic_dims_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -86,7 +86,7 @@ fn buffer_dynamic_dims_smoke() -> Result<(), PJRTError<'a>> {
 }
 
 #[test]
-fn buffer_external_references_smoke() -> Result<(), PJRTError<'a>> {
+fn buffer_external_references_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -99,7 +99,7 @@ fn buffer_external_references_smoke() -> Result<(), PJRTError<'a>> {
 }
 
 #[test]
-fn buffer_on_device_size_and_element_type_smoke() -> Result<(), PJRTError<'a>> {
+fn buffer_on_device_size_and_element_type_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -124,7 +124,7 @@ fn buffer_on_device_size_and_element_type_smoke() -> Result<(), PJRTError<'a>> {
 }
 
 #[test]
-fn buffer_to_host_async_roundtrip_smoke() -> Result<(), PJRTError<'a>> {
+fn buffer_to_host_async_roundtrip_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };

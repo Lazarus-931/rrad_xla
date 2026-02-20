@@ -1,9 +1,9 @@
 use rrad_pjrt::rrad_pjrt::error::PJRTError;
-use super::tools::runtime_or_skip;
+use super::tools::{runtime_or_skip, TestResult};
 
 
 #[test]
-fn memory_id_smoke<'a>() -> Result<(), PJRTError<'a>> {
+fn memory_id_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -27,7 +27,7 @@ fn memory_id_smoke<'a>() -> Result<(), PJRTError<'a>> {
 }
 
 #[test]
-fn memory_kind_smoke<'a>() -> Result<(), PJRTError<'a>> {
+fn memory_kind_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -51,7 +51,7 @@ fn memory_kind_smoke<'a>() -> Result<(), PJRTError<'a>> {
 }
 
 #[test]
-fn memory_to_string_smoke<'a>() -> Result<(), PJRTError<'a>> {
+fn memory_to_string_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -76,7 +76,7 @@ fn memory_to_string_smoke<'a>() -> Result<(), PJRTError<'a>> {
 }
 
 #[test]
-fn memory_debug_string_smoke<'a>() -> Result<(), PJRTError<'a>> {
+fn memory_debug_string_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -101,7 +101,7 @@ fn memory_debug_string_smoke<'a>() -> Result<(), PJRTError<'a>> {
 }
 
 #[test]
-fn memory_addressable_by_device_smoke<'a>() -> Result<(), PJRTError<'a>> {
+fn memory_addressable_by_device_smoke() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };

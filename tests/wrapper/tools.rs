@@ -1,6 +1,6 @@
+use rrad_pjrt::rrad_pjrt::error::PJRTError;
+use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 use std::path::{Path, PathBuf};
-
-use rrad_pjrt::pjrt::loader::PjrtRuntime;
 
 pub fn resolve_plugin_path() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PJRT_PLUGIN") {

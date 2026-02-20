@@ -27,9 +27,10 @@ impl<'a> PJRTExecuteContext<'a> {
     }
 
     pub fn create(rt: &'a PjrtRuntime) -> Result<Self, PJRTError<'a>> {
-        let f = rt.api().PJRT_ExecuteContext_Create.ok_or_else(|| {
-            Self::invalid_arg(rt, "PJRT_ExecuteContext_Create symbol not found")
-        })?;
+        let f = rt
+            .api()
+            .PJRT_ExecuteContext_Create
+            .ok_or_else(|| Self::invalid_arg(rt, "PJRT_ExecuteContext_Create symbol not found"))?;
 
         let mut args = PJRT_ExecuteContext_Create_Args {
             struct_size: PJRT_ExecuteContext_Create_Args_STRUCT_SIZE as usize,

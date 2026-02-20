@@ -65,6 +65,12 @@ pub struct PJRTDevice<'a> {
 }
 
 impl<'a> PJRTDevice<'a> {
+    pub fn is_null(&self) -> bool {
+        self.raw.is_null()
+    }
+}
+
+impl<'a> PJRTDevice<'a> {
     pub fn new(rt: &'a PjrtRuntime, raw_device: *mut PJRT_Device) -> Self {
         Self {
             rt,

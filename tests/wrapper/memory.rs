@@ -6,8 +6,8 @@ fn memory_id_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
-    let memories = client.addressable_memory_refs()?;
+    let client = rt.create_client()?;
+    let memories = client.addressable_memories()?;
     assert!(
         !memories.is_empty(),
         "expected at least one addressable memory"
@@ -29,8 +29,8 @@ fn memory_kind_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
-    let memories = client.addressable_memory_refs()?;
+    let client = rt.create_client()?;
+    let memories = client.addressable_memories()?;
     assert!(
         !memories.is_empty(),
         "expected at least one addressable memory"
@@ -52,8 +52,8 @@ fn memory_to_string_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
-    let memories = client.addressable_memory_refs()?;
+    let client = rt.create_client()?;
+    let memories = client.addressable_memories()?;
     assert!(
         !memories.is_empty(),
         "expected at least one addressable memory"
@@ -76,8 +76,8 @@ fn memory_debug_string_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
-    let memories = client.addressable_memory_refs()?;
+    let client = rt.create_client()?;
+    let memories = client.addressable_memories()?;
     assert!(
         !memories.is_empty(),
         "expected at least one addressable memory"
@@ -100,8 +100,8 @@ fn memory_addressable_by_device_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
-    let memories = client.addressable_memory_refs()?;
+    let client = rt.create_client()?;
+    let memories = client.addressable_memories()?;
     assert!(
         !memories.is_empty(),
         "expected at least one addressable memory"

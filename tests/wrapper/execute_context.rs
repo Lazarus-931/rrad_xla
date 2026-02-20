@@ -1,13 +1,13 @@
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 
-use rrad_pjrt::pjrt::execute_context::PJRTExecuteContext;
-use rrad_pjrt::pjrt::loader::PjrtRuntime;
 use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_ExecuteContext_Destroy_Args,
     PJRT_ExecuteContext_Destroy_Args_STRUCT_SIZE,
 };
+use rrad_pjrt::rrad_pjrt::error::PJRTError;
 use rrad_pjrt::rrad_pjrt::execute_context::PJRTExecuteContext;
+use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 
 const MODULE_ADD_ONE: &str = r#"module {
 func.func @main(%arg0: tensor<f32>) -> tensor<f32> {
@@ -59,12 +59,12 @@ fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
 }
 
 #[test]
-fn compile_and_execute_smoke() -> Result<(), String> {
+fn compile_and_execute_smoke() -> Result<(), PJRTError> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let topology = client.topology_description()?;
     let descs = topology.device_descriptions()?;
     assert!(
@@ -84,7 +84,7 @@ fn compile_and_execute_smoke() -> Result<(), String> {
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(device),
+        Some(device.raw),
     )?;
 
     let (outputs, done) =
@@ -114,7 +114,7 @@ fn execute_with_context_fails_on_missing_args() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let topology = client.topology_description()?;
     let descs = topology.device_descriptions()?;
     assert!(
@@ -139,7 +139,7 @@ fn non_empty_compile_options_topology_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let topology = client.topology_description()?;
     let descs = topology.device_descriptions()?;
     assert!(
@@ -167,7 +167,7 @@ fn non_empty_compile_options_topology_smoke() -> Result<(), String> {
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(device),
+        Some(device.raw()),
     )?;
 
     let (outputs, done) =
@@ -196,7 +196,7 @@ fn multi_output_execute_with_context_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let _topology = client.topology_description()?;
     let executable = client.compile_on_topology_code(MODULE_TWO_OUTPUTS, "mlir", &[], None)?;
 
@@ -247,7 +247,7 @@ fn execute_with_options_launch_id_and_device_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
     let execute_context = PJRTExecuteContext::create(&rt)?;
 
@@ -260,7 +260,7 @@ fn execute_with_options_launch_id_and_device_smoke() -> Result<(), String> {
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(device),
+        Some(device.raw()),
     )?;
 
     let (outputs, done) = executable.execute_with_options(
@@ -270,7 +270,7 @@ fn execute_with_options_launch_id_and_device_smoke() -> Result<(), String> {
         0,
         1234,
         &[],
-        device,
+        device.raw(),
     )?;
     done.ok()?;
 
@@ -297,7 +297,7 @@ fn execute_with_options_rejects_callback_counts() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
     let execute_context = PJRTExecuteContext::create(&rt)?;
 
@@ -310,7 +310,7 @@ fn execute_with_options_rejects_callback_counts() -> Result<(), String> {
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(device),
+        Some(device.raw),
     )?;
 
     let result = executable.execute_with_options(
@@ -335,7 +335,7 @@ fn execute_with_options_rejects_negative_non_donatable_indices() -> Result<(), S
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
     let execute_context = PJRTExecuteContext::create(&rt)?;
 
@@ -348,7 +348,7 @@ fn execute_with_options_rejects_negative_non_donatable_indices() -> Result<(), S
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(device),
+        Some(device.raw()),
     )?;
 
     let result = executable.execute_with_options(
@@ -358,7 +358,7 @@ fn execute_with_options_rejects_negative_non_donatable_indices() -> Result<(), S
         0,
         0,
         &[-1],
-        device,
+        device.raw(),
     );
     if result.is_ok() {
         return Err(
@@ -376,7 +376,7 @@ fn execute_without_context_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let executable = client.compile_on_topology_code(MODULE_ADD_ONE, "mlir", &[], None)?;
     let raw_devices = client.devices()?;
     assert!(!raw_devices.is_empty(), "client has no devices");
@@ -387,7 +387,7 @@ fn execute_without_context_smoke() -> Result<(), String> {
         &input,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[],
-        Some(device),
+        Some(device.raw()),
     )?;
 
     let (outputs, done) = executable.execute_with_context(&[&input_buffer], None)?;

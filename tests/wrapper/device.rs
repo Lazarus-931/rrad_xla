@@ -1,5 +1,5 @@
-use rrad_pjrt::pjrt::device::PJRTDevice;
-use rrad_pjrt::pjrt::loader::PjrtRuntime;
+use rrad_pjrt::rrad_pjrt::device::PJRTDevice;
+use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 use std::path::{Path, PathBuf};
 
 fn resolve_plugin_path() -> Option<PathBuf> {
@@ -42,11 +42,11 @@ fn general_hardware_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let raw_devices = client.devices()?;
     for device in raw_devices {
         assert!(!device.is_null(), "raw device should not be null");
-        let device_ = PJRTDevice::new(&rt, device);
+        let device_ = PJRTDevice::new(&rt, device.raw);
         let hardware_id = device_.local_hardware_id()?;
         let async_tracking_event = device_.create_async_tracking_event("test")?;
         assert!(hardware_id >= 0, "local hardware id should be non-negative");
@@ -64,7 +64,7 @@ fn device_basic_metadata_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let raw_devices = client.devices()?;
     assert!(!raw_devices.is_empty(), "expected at least one device");
     assert!(
@@ -72,7 +72,7 @@ fn device_basic_metadata_smoke() -> Result<(), String> {
         "first raw device should not be null"
     );
 
-    let device = PJRTDevice::new(&rt, raw_devices[0]);
+    let device = PJRTDevice::new(&rt, raw_devices[0].raw);
     assert!(device.id()? >= 0, "device id should be non-negative");
     assert!(
         !device.kind()?.is_empty(),
@@ -87,11 +87,11 @@ fn device_description_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let raw_devices = client.devices()?;
     assert!(!raw_devices.is_empty(), "expected at least one device");
 
-    let device = PJRTDevice::new(&rt, raw_devices[0]);
+    let device = PJRTDevice::new(&rt, raw_devices[0].raw);
     let desc = device.description()?;
 
     assert!(desc.id()? >= 0, "description id should be non-negative");
@@ -112,11 +112,11 @@ fn device_is_addressable_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let raw_devices = client.devices()?;
     assert!(!raw_devices.is_empty(), "expected at least one device");
 
-    let device = PJRTDevice::new(&rt, raw_devices[0]);
+    let device = PJRTDevice::new(&rt, raw_devices[0].raw);
     assert!(
         device.is_addressable()?,
         "first runtime device should be addressable"
@@ -130,11 +130,11 @@ fn device_default_memory_in_addressable_memories_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let raw_devices = client.devices()?;
     assert!(!raw_devices.is_empty(), "expected at least one device");
 
-    let device = PJRTDevice::new(&rt, raw_devices[0]);
+    let device = PJRTDevice::new(&rt, raw_devices[0].raw);
     let default_memory = device.default_memory()?;
     assert!(
         !default_memory.is_null(),
@@ -155,11 +155,11 @@ fn device_debug_and_process_index_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let raw_devices = client.devices()?;
     assert!(!raw_devices.is_empty(), "expected at least one device");
 
-    let device = PJRTDevice::new(&rt, raw_devices[0]);
+    let device = PJRTDevice::new(&rt, raw_devices[0].raw);
     let debug_string = device.debug_string()?;
     let to_string = device.to_string()?;
     let process_index = device.process_index()?;

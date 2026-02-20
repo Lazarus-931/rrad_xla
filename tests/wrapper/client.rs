@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 
-use rrad_pjrt::pjrt::device::PJRTDevice;
-use rrad_pjrt::pjrt::loader::PjrtRuntime;
 use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Error_Code_PJRT_Error_Code_OK,
 };
+use rrad_pjrt::rrad_pjrt::device::PJRTDevice;
+use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 
 fn resolve_plugin_path() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PJRT_PLUGIN") {

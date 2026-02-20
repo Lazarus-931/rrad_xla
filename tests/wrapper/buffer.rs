@@ -1,31 +1,31 @@
+use super::tools::runtime_or_skip;
 use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_MemoryLayout_Type_PJRT_Buffer_MemoryLayout_Type_Strides,
     PJRT_Buffer_MemoryLayout_Type_PJRT_Buffer_MemoryLayout_Type_Tiled,
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
 };
+use rrad_pjrt::rrad_pjrt::buffer::PJRTBuffer;
+use rrad_pjrt::rrad_pjrt::client::PJRTClient;
+use rrad_pjrt::rrad_pjrt::error::PJRTError;
 
-use super::tools::runtime_or_skip;
-
-fn make_test_buffer<'a>(
-    client: &'a rrad_pjrt::pjrt::client::PJRTClient<'a>,
-) -> Result<rrad_pjrt::pjrt::buffer::PJRTBuffer<'a>, String> {
+fn make_test_buffer<'a>(client: &'a PJRTClient<'a>) -> Result<PJRTBuffer<'a>, String> {
     let device = client.lookup_addressable_device(0)?;
     let host = [1.0_f32, 2.0, 3.0, 4.0];
     client.buffer_from_host_slice_copy(
         &host,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[host.len() as i64],
-        Some(device),
+        Some(device.raw),
     )
 }
 
 #[test]
-fn buffer_delete_smoke() -> Result<(), String> {
+fn buffer_delete_smoke() -> Result<(), PJRTError<'static>> {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let buffer = make_test_buffer(&client)?;
 
     assert!(
@@ -46,7 +46,7 @@ fn buffer_get_memory_layout_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let buffer = make_test_buffer(&client)?;
 
     let layout = buffer.get_memory_layout()?;
@@ -66,7 +66,7 @@ fn buffer_dynamic_dims_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let device = client.lookup_addressable_device(0)?;
     let host = [1.0_f32, 2.0, 3.0, 4.0];
     let dims = [2_i64, 2_i64];
@@ -74,7 +74,7 @@ fn buffer_dynamic_dims_smoke() -> Result<(), String> {
         &host,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &dims,
-        Some(device),
+        Some(device.raw),
     )?;
 
     let dynamic_dims = buffer.dynamic_dimension_indices()?;
@@ -91,7 +91,7 @@ fn buffer_external_references_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let buffer = make_test_buffer(&client)?;
     buffer.increase_external_ref()?;
     buffer.decrease_external_ref()?;
@@ -104,7 +104,7 @@ fn buffer_on_device_size_and_element_type_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let buffer = make_test_buffer(&client)?;
 
     let element_type = buffer.element_type()?;
@@ -129,7 +129,7 @@ fn buffer_to_host_async_roundtrip_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
+    let client = rt.create_client()?;
     let buffer = make_test_buffer(&client)?;
     let mut out_bytes = [0u8; 4 * std::mem::size_of::<f32>()];
 

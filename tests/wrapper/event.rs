@@ -2,12 +2,12 @@ use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use rrad_pjrt::pjrt::event::PJRTEvent;
-use rrad_pjrt::pjrt::loader::PjrtRuntime;
 use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Event_Destroy_Args,
     PJRT_Event_Destroy_Args_STRUCT_SIZE,
 };
+use rrad_pjrt::rrad_pjrt::event::PJRTEvent;
+use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 
 fn resolve_plugin_path() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PJRT_PLUGIN") {
@@ -53,7 +53,7 @@ fn event_create_and_is_ready_smoke() -> Result<(), String> {
     assert!(!event.raw().is_null(), "created event should not be null");
 
     // We only validate this call succeeds; readiness value may vary by backend.
-    let _ready = event.is_ready()?;
+    let _ready = event.is_ready().map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -67,9 +67,10 @@ fn event_on_ready_requires_callback() -> Result<(), String> {
     let err = event
         .on_ready(None, null_mut())
         .expect_err("on_ready(None, ..) should return an error");
+    let err_msg = err.to_string();
     assert!(
-        err.contains("callback"),
-        "expected callback validation error, got: {err}"
+        err_msg.contains("callback"),
+        "expected callback validation error, got: {err_msg}"
     );
     Ok(())
 }
@@ -80,8 +81,8 @@ fn event_from_buffer_ready_event_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
-    let devices = client.devices()?;
+    let client = rt.create_client()?;
+    let devices = client.devices().map_err(|e| e.to_string())?;
     if devices.is_empty() {
         return Err("expected at least one device".to_string());
     }
@@ -91,13 +92,16 @@ fn event_from_buffer_ready_event_smoke() -> Result<(), String> {
         &host,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[host.len() as i64],
-        Some(devices[0]),
+        Some(devices[0].raw),
     )?;
 
     let event = buffer.ready_event()?;
-    event.await_ready()?;
+    event.await_ready().map_err(|e| e.to_string())?;
     event.ok()?;
-    assert!(event.is_ready()?, "ready_event should be ready after await");
+    assert!(
+        event.is_ready().map_err(|e| e.to_string())?,
+        "ready_event should be ready after await"
+    );
 
     Ok(())
 }
@@ -118,8 +122,8 @@ fn event_on_ready_callback_invoked_smoke() -> Result<(), String> {
         return Ok(());
     };
 
-    let client = rt.create_client_raii()?;
-    let devices = client.devices()?;
+    let client = rt.create_client()?;
+    let devices = client.devices().map_err(|e| e.to_string())?;
     if devices.is_empty() {
         return Err("expected at least one device".to_string());
     }
@@ -129,16 +133,18 @@ fn event_on_ready_callback_invoked_smoke() -> Result<(), String> {
         &host,
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
         &[host.len() as i64],
-        Some(devices[0]),
+        Some(devices[0].raw),
     )?;
     let event = buffer.ready_event()?;
 
     let called = AtomicBool::new(false);
-    event.on_ready(
-        Some(mark_event_ready),
-        (&called as *const AtomicBool).cast_mut().cast(),
-    )?;
-    event.await_ready()?;
+    event
+        .on_ready(
+            Some(mark_event_ready),
+            (&called as *const AtomicBool).cast_mut().cast(),
+        )
+        .map_err(|e| e.to_string())?;
+    event.await_ready().map_err(|e| e.to_string())?;
     event.ok()?;
 
     assert!(

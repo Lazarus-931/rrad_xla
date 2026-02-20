@@ -39,19 +39,18 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_DeviceDescription, String> {
+    fn raw_checked(&self) -> Result<*mut PJRT_DeviceDescription, PJRTError<'a>> {
         if self.raw.is_null() {
-            Err(self.error("PJRT_DeviceDescription is null").to_string())
+            Err(self.error("PJRT_DeviceDescription is null"))
         } else {
             Ok(self.raw)
         }
     }
 
-    pub fn id(&self) -> Result<i32, String> {
+    pub fn id(&self) -> Result<i32, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self.rt.api().PJRT_DeviceDescription_Id.ok_or_else(|| {
             self.error("PJRT_DeviceDescription_Id symbol not found")
-                .to_string()
         })?;
 
         let mut args = PJRT_DeviceDescription_Id_Args {
@@ -64,11 +63,11 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         if err.is_null() {
             Ok(args.id)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn process_index(&self) -> Result<i32, String> {
+    pub fn process_index(&self) -> Result<i32, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -76,7 +75,6 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
             .PJRT_DeviceDescription_ProcessIndex
             .ok_or_else(|| {
                 self.error("PJRT_DeviceDescription_ProcessIndex symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_DeviceDescription_ProcessIndex_Args {
@@ -89,15 +87,14 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         if err.is_null() {
             Ok(args.process_index)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn kind(&self) -> Result<String, String> {
+    pub fn kind(&self) -> Result<String, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self.rt.api().PJRT_DeviceDescription_Kind.ok_or_else(|| {
             self.error("PJRT_DeviceDescription_Kind symbol not found")
-                .to_string()
         })?;
 
         let mut args = PJRT_DeviceDescription_Kind_Args {
@@ -109,12 +106,12 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
-        bytes_to_string(args.device_kind, args.device_kind_size, "device_kind")
+        bytes_to_string(self.rt, args.device_kind, args.device_kind_size, "device_kind")
     }
 
-    pub fn debug_string(&self) -> Result<String, String> {
+    pub fn debug_string(&self) -> Result<String, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -122,7 +119,6 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
             .PJRT_DeviceDescription_DebugString
             .ok_or_else(|| {
                 self.error("PJRT_DeviceDescription_DebugString symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_DeviceDescription_DebugString_Args {
@@ -134,12 +130,12 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
-        bytes_to_string(args.debug_string, args.debug_string_size, "debug_string")
+        bytes_to_string(self.rt, args.debug_string, args.debug_string_size, "debug_string")
     }
 
-    pub fn to_string(&self) -> Result<String, String> {
+    pub fn to_string(&self) -> Result<String, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -147,7 +143,6 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
             .PJRT_DeviceDescription_ToString
             .ok_or_else(|| {
                 self.error("PJRT_DeviceDescription_ToString symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_DeviceDescription_ToString_Args {
@@ -159,12 +154,12 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
-        bytes_to_string(args.to_string, args.to_string_size, "to_string")
+        bytes_to_string(self.rt, args.to_string, args.to_string_size, "to_string")
     }
 
-    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, String> {
+    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -172,7 +167,6 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
             .PJRT_DeviceDescription_Attributes
             .ok_or_else(|| {
                 self.error("PJRT_DeviceDescription_Attributes symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_DeviceDescription_Attributes_Args {
@@ -184,9 +178,10 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
-        decode_named_values(args.attributes, args.num_attributes)
+        decode_named_values(self.rt, args.attributes, args.num_attributes)
+            .map_err(|err| err.unwrap_or_else(|| self.error("NamedValue decode failed")))
     }
 }
 
@@ -258,15 +253,15 @@ impl<'a> PJRTTopologyDescription<'a> {
         Self::create(rt, None, &[])
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_TopologyDescription, String> {
+    fn raw_checked(&self) -> Result<*mut PJRT_TopologyDescription, PJRTError<'a>> {
         if self.raw.is_null() {
-            Err(self.error("PJRT_TopologyDescription is null").to_string())
+            Err(self.error("PJRT_TopologyDescription is null"))
         } else {
             Ok(self.raw)
         }
     }
 
-    pub fn platform_name(&self) -> Result<String, String> {
+    pub fn platform_name(&self) -> Result<String, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -274,7 +269,6 @@ impl<'a> PJRTTopologyDescription<'a> {
             .PJRT_TopologyDescription_PlatformName
             .ok_or_else(|| {
                 self.error("PJRT_TopologyDescription_PlatformName symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_TopologyDescription_PlatformName_Args {
@@ -286,12 +280,12 @@ impl<'a> PJRTTopologyDescription<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
-        bytes_to_string(args.platform_name, args.platform_name_size, "platform_name")
+        bytes_to_string(self.rt, args.platform_name, args.platform_name_size, "platform_name")
     }
 
-    pub fn platform_version(&self) -> Result<String, String> {
+    pub fn platform_version(&self) -> Result<String, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -299,7 +293,6 @@ impl<'a> PJRTTopologyDescription<'a> {
             .PJRT_TopologyDescription_PlatformVersion
             .ok_or_else(|| {
                 self.error("PJRT_TopologyDescription_PlatformVersion symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_TopologyDescription_PlatformVersion_Args {
@@ -311,16 +304,17 @@ impl<'a> PJRTTopologyDescription<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         bytes_to_string(
+            self.rt,
             args.platform_version,
             args.platform_version_size,
             "platform_version",
         )
     }
 
-    pub fn device_descriptions(&self) -> Result<Vec<PJRTDeviceDescriptionRef<'a>>, String> {
+    pub fn device_descriptions(&self) -> Result<Vec<PJRTDeviceDescriptionRef<'a>>, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -328,7 +322,6 @@ impl<'a> PJRTTopologyDescription<'a> {
             .PJRT_TopologyDescription_GetDeviceDescriptions
             .ok_or_else(|| {
                 self.error("PJRT_TopologyDescription_GetDeviceDescriptions symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_TopologyDescription_GetDeviceDescriptions_Args {
@@ -340,15 +333,14 @@ impl<'a> PJRTTopologyDescription<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.num_descriptions == 0 {
             return Ok(Vec::new());
         }
         if args.descriptions.is_null() {
             return Err(self
-                .error("Topology returned null descriptions with nonzero count")
-                .to_string());
+                .error("Topology returned null descriptions with nonzero count"));
         }
 
         let descriptions = unsafe { from_raw_parts(args.descriptions, args.num_descriptions) };
@@ -360,7 +352,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         Ok(out)
     }
 
-    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, String> {
+    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -368,7 +360,6 @@ impl<'a> PJRTTopologyDescription<'a> {
             .PJRT_TopologyDescription_Attributes
             .ok_or_else(|| {
                 self.error("PJRT_TopologyDescription_Attributes symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_TopologyDescription_Attributes_Args {
@@ -380,12 +371,13 @@ impl<'a> PJRTTopologyDescription<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
-        decode_named_values(args.attributes, args.num_attributes)
+        decode_named_values(self.rt, args.attributes, args.num_attributes)
+            .map_err(|err| err.unwrap_or_else(|| self.error("NamedValue decode failed")))
     }
 
-    pub fn serialize(&self) -> Result<Vec<u8>, String> {
+    pub fn serialize(&self) -> Result<Vec<u8>, PJRTError<'a>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -393,7 +385,6 @@ impl<'a> PJRTTopologyDescription<'a> {
             .PJRT_TopologyDescription_Serialize
             .ok_or_else(|| {
                 self.error("PJRT_TopologyDescription_Serialize symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_TopologyDescription_Serialize_Args {
@@ -407,17 +398,15 @@ impl<'a> PJRTTopologyDescription<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if !args.serialized_topology.is_null() && args.serialized_topology_deleter.is_none() {
             return Err(self
-                .error("Serialize returned serialized_topology without a deleter")
-                .to_string());
+                .error("Serialize returned serialized_topology without a deleter"));
         }
         if args.serialized_bytes.is_null() && args.serialized_bytes_size != 0 {
             return Err(self
-                .error("Serialize returned null bytes with nonzero size")
-                .to_string());
+                .error("Serialize returned null bytes with nonzero size"));
         }
 
         let bytes = if args.serialized_bytes_size == 0 {
@@ -441,10 +430,10 @@ impl<'a> PJRTTopologyDescription<'a> {
         Ok(bytes)
     }
 
-    pub fn deserialize(rt: &'a PjrtRuntime, serialized_topology: &[u8]) -> Result<Self, String> {
+    pub fn deserialize(rt: &'a PjrtRuntime, serialized_topology: &[u8]) -> Result<Self, PJRTError<'a>> {
         if serialized_topology.is_empty() {
             return Err(
-                PJRTError::invalid_arg(rt, "serialized_topology must not be empty").to_string(),
+                PJRTError::invalid_arg(rt, "serialized_topology must not be empty"),
             );
         }
 
@@ -453,7 +442,6 @@ impl<'a> PJRTTopologyDescription<'a> {
             .PJRT_TopologyDescription_Deserialize
             .ok_or_else(|| {
                 PJRTError::invalid_arg(rt, "PJRT_TopologyDescription_Deserialize symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_TopologyDescription_Deserialize_Args {
@@ -467,14 +455,13 @@ impl<'a> PJRTTopologyDescription<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            return Err(error_to_string(rt.api(), err));
+            return Err(PJRTError::invalid_arg(rt, "Error is non-null"));
         }
         if args.topology.is_null() {
             return Err(PJRTError::invalid_arg(
                 rt,
                 "PJRT_TopologyDescription_Deserialize returned null topology",
-            )
-            .to_string());
+            ));
         }
 
         Ok(Self::new(rt, args.topology))
@@ -485,10 +472,10 @@ impl<'a> PJRTTopologyDescription<'a> {
         client: *mut PJRT_Client,
         program: &PJRT_Program,
         compile_options: &[u8],
-    ) -> Result<*mut PJRT_Executable, String> {
+    ) -> Result<*mut PJRT_Executable, PJRTError<'a>> {
         let topology = self.raw_checked()?;
         if client.is_null() {
-            return Err(self.error("PJRT_Client is null").to_string());
+            return Err(self.error("PJRT_Client is null"));
         }
 
         let mut program_local = *program;
@@ -497,20 +484,18 @@ impl<'a> PJRTTopologyDescription<'a> {
         }
         if program_local.code_size > 0 && program_local.code.is_null() {
             return Err(self
-                .error("PJRT_Program.code is null but code_size is nonzero")
-                .to_string());
+                .error("PJRT_Program.code is null but code_size is nonzero"));
         }
         if program_local.format_size > 0 && program_local.format.is_null() {
             return Err(self
-                .error("PJRT_Program.format is null but format_size is nonzero")
-                .to_string());
+                .error("PJRT_Program.format is null but format_size is nonzero"));
         }
 
         let f = self
             .rt
             .api()
             .PJRT_Compile
-            .ok_or_else(|| self.error("PJRT_Compile symbol not found").to_string())?;
+            .ok_or_else(|| self.error("PJRT_Compile symbol not found"))?;
 
         let (compile_options_ptr, compile_options_size) = if compile_options.is_empty() {
             (ptr::null(), 0usize)
@@ -534,24 +519,21 @@ impl<'a> PJRTTopologyDescription<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.executable.is_null() {
-            return Err(self
-                .error("PJRT_Compile returned null executable")
-                .to_string());
+            return Err(self.error("PJRT_Compile returned null executable"));
         }
         Ok(args.executable)
     }
 
-    fn destroy_executable(&self, executable: *mut PJRT_Executable) -> Result<(), String> {
+    fn destroy_executable(&self, executable: *mut PJRT_Executable) -> Result<(), PJRTError<'a>> {
         if executable.is_null() {
             return Ok(());
         }
 
         let f = self.rt.api().PJRT_Executable_Destroy.ok_or_else(|| {
             self.error("PJRT_Executable_Destroy symbol not found")
-                .to_string()
         })?;
 
         let mut args = PJRT_Executable_Destroy_Args {
@@ -564,14 +546,13 @@ impl<'a> PJRTTopologyDescription<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    fn serialize_executable(&self, executable: *mut PJRT_Executable) -> Result<Vec<u8>, String> {
+    fn serialize_executable(&self, executable: *mut PJRT_Executable) -> Result<Vec<u8>, PJRTError<'a>> {
         let f = self.rt.api().PJRT_Executable_Serialize.ok_or_else(|| {
             self.error("PJRT_Executable_Serialize symbol not found")
-                .to_string()
         })?;
 
         let mut args = PJRT_Executable_Serialize_Args {
@@ -586,21 +567,19 @@ impl<'a> PJRTTopologyDescription<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
 
         if !args.serialized_executable.is_null() && args.serialized_executable_deleter.is_none() {
             return Err(self
-                .error("PJRT_Executable_Serialize returned serialized_executable without deleter")
-                .to_string());
+                .error("PJRT_Executable_Serialize returned serialized_executable without deleter"));
         }
 
         let result = if args.serialized_bytes_size == 0 {
             Ok(Vec::new())
         } else if args.serialized_bytes.is_null() {
             Err(self
-                .error("PJRT_Executable_Serialize returned null serialized_bytes with nonzero size")
-                .to_string())
+                .error("PJRT_Executable_Serialize returned null serialized_bytes with nonzero size"))
         } else {
             let bytes = unsafe {
                 from_raw_parts(
@@ -629,7 +608,7 @@ impl<'a> PJRTTopologyDescription<'a> {
     ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
         let executable = self
             .compile(client, program, compile_options)
-            .map_err(|e| self.error(e))?;
+            .map_err(|e| self.error("Failed to compile"))?;
         let serialized = self.serialize_executable(executable);
         let destroy_result = self.destroy_executable(executable);
 
@@ -696,12 +675,12 @@ impl<'a> PJRTTopologyDescription<'a> {
         format: &str,
         compile_options: &[u8],
         overridden_compile_options: Option<&[u8]>,
-    ) -> Result<PJRTLoadedExecutable<'a>, String> {
+    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
         if program_code.is_empty() {
-            return Err(self.error("program_code must not be empty").to_string());
+            return Err(self.error("program_code must not be empty"));
         }
         if format.is_empty() {
-            return Err(self.error("format must not be empty").to_string());
+            return Err(self.error("format must not be empty"));
         }
 
         let program = PJRT_Program {
@@ -719,7 +698,7 @@ impl<'a> PJRTTopologyDescription<'a> {
             compile_options,
             overridden_compile_options,
         )
-        .map_err(|e| e.to_string())
+        .map_err(|e| e)
     }
 }
 
@@ -741,30 +720,36 @@ impl Drop for PJRTTopologyDescription<'_> {
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
             // Drop must not panic; best-effort cleanup.
-            let _ = error_to_string(self.rt.api(), err);
+            let _ = self.error("Error is non-null");
         }
     }
 }
 
-fn bytes_to_string(
+fn bytes_to_string<'a>(
+    rt: &'a PjrtRuntime,
+
     ptr: *const libc::c_char,
     size: usize,
     field_name: &str,
-) -> Result<String, String> {
+) -> Result<String, PJRTError<'a>> {
     if size == 0 {
         return Ok(String::new());
     }
     if ptr.is_null() {
-        return Err(format!("{field_name} pointer is null for non-empty string"));
+        return Err(PJRTError::invalid_arg(
+            rt,
+            format!("{field_name} pointer is null for non-empty string"),
+        ));
     }
     let bytes = unsafe { from_raw_parts(ptr as *const u8, size) };
     Ok(String::from_utf8_lossy(bytes).into_owned())
 }
 
-fn decode_named_values(
+fn decode_named_values<'a>(
+    rt: &'a PjrtRuntime,
     attrs: *const PJRT_NamedValue,
     num_attrs: usize,
-) -> Result<Vec<PJRTNamedAttribute>, String> {
+) -> Result<Vec<PJRTNamedAttribute>, Option<PJRTError<'a>>> {
     const NV_STRING: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kString;
     const NV_INT64: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kInt64;
     const NV_INT64_LIST: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kInt64List;
@@ -775,14 +760,21 @@ fn decode_named_values(
         return Ok(Vec::new());
     }
     if attrs.is_null() {
-        return Err("NamedValue pointer is null with nonzero count".to_string());
+        
+        return Err(Some(PJRTError::invalid_arg(
+            rt,
+            "NamedValue pointer is null with nonzero count",
+        )));
     }
 
     let values = unsafe { from_raw_parts(attrs, num_attrs) };
     let mut out = Vec::with_capacity(values.len());
     for value in values {
         if value.name.is_null() && value.name_size != 0 {
-            return Err("NamedValue name pointer is null".to_string());
+            return Err(Some(PJRTError::invalid_arg(
+                rt,
+                "NamedValue name pointer is null",
+            )));
         }
         let name = {
             let name_bytes = if value.name_size == 0 {
@@ -797,7 +789,10 @@ fn decode_named_values(
             NV_STRING => {
                 let ptr = unsafe { value.__bindgen_anon_1.string_value };
                 if ptr.is_null() && value.value_size != 0 {
-                    return Err(format!("NamedValue '{name}' has null string pointer"));
+                    return Err(Some(PJRTError::invalid_arg(
+                        rt,
+                        format!("NamedValue '{name}' has null string pointer"),
+                    )));
                 }
                 let bytes = if value.value_size == 0 {
                     &[]
@@ -813,7 +808,10 @@ fn decode_named_values(
             NV_INT64_LIST => {
                 let ptr = unsafe { value.__bindgen_anon_1.int64_array_value };
                 if ptr.is_null() && value.value_size != 0 {
-                    return Err(format!("NamedValue '{name}' has null int64 list pointer"));
+                    return Err(Some(PJRTError::invalid_arg(
+                        rt,
+                        format!("NamedValue '{name}' has null int64 list pointer"),
+                    )));
                 }
                 let ints = if value.value_size == 0 {
                     Vec::new()
@@ -830,7 +828,12 @@ fn decode_named_values(
                 let v = unsafe { value.__bindgen_anon_1.bool_value };
                 PJRTNamedValue::Bool(v)
             }
-            other => return Err(format!("NamedValue '{name}' has unknown type tag {other}")),
+            other => {
+                return Err(Some(PJRTError::invalid_arg(
+                    rt,
+                    format!("NamedValue '{name}' has unknown type tag {other}"),
+                )));
+            }
         };
 
         out.push(PJRTNamedAttribute {

@@ -37,8 +37,8 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         }
     }
 
-    pub fn add_metadata(&self, metadata: &[PJRT_NamedValue]) -> Result<(), String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn add_metadata(&self, metadata: &[PJRT_NamedValue]) -> Result<(), PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
@@ -46,7 +46,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
             .PJRT_AsyncHostToDeviceTransferManager_AddMetadata
             .ok_or_else(|| {
                 self.error("PJRT_AsyncHostToDeviceTransferManager_AddMetadata symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_AsyncHostToDeviceTransferManager_AddMetadata_Args {
@@ -66,12 +66,12 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn buffer_count(&self) -> Result<usize, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn buffer_count(&self) -> Result<usize, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
@@ -79,7 +79,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
             .PJRT_AsyncHostToDeviceTransferManager_BufferCount
             .ok_or_else(|| {
                 self.error("PJRT_AsyncHostToDeviceTransferManager_BufferCount symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_AsyncHostToDeviceTransferManager_BufferCount_Args {
@@ -94,12 +94,12 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         if err.is_null() {
             Ok(args.buffer_count)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn buffer_size(&self, buffer_index: i32) -> Result<usize, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn buffer_size(&self, buffer_index: i32) -> Result<usize, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
@@ -107,7 +107,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
             .PJRT_AsyncHostToDeviceTransferManager_BufferSize
             .ok_or_else(|| {
                 self.error("PJRT_AsyncHostToDeviceTransferManager_BufferSize symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_AsyncHostToDeviceTransferManager_BufferSize_Args {
@@ -122,12 +122,12 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         if err.is_null() {
             Ok(args.buffer_size)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn device(&self) -> Result<PJRTDevice<'a>, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn device(&self) -> Result<PJRTDevice<'a>, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
@@ -135,7 +135,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
             .PJRT_AsyncHostToDeviceTransferManager_Device
             .ok_or_else(|| {
                 self.error("PJRT_AsyncHostToDeviceTransferManager_Device symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_AsyncHostToDeviceTransferManager_Device_Args {
@@ -147,19 +147,19 @@ impl<'a> PjrtHtoDeviceManager<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.device_out.is_null() {
             return Err(self
                 .error("PJRT_AsyncHostToDeviceTransferManager_Device returned null device")
-                .to_string());
+                );
         }
 
         Ok(PJRTDevice::new(self.rt, args.device_out))
     }
 
-    pub fn retrieve_buffer(&self, buffer_index: i32) -> Result<*mut PJRT_Buffer, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn retrieve_buffer(&self, buffer_index: i32) -> Result<*mut PJRT_Buffer, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
@@ -167,7 +167,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
             .PJRT_AsyncHostToDeviceTransferManager_RetrieveBuffer
             .ok_or_else(|| {
                 self.error("PJRT_AsyncHostToDeviceTransferManager_RetrieveBuffer symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_AsyncHostToDeviceTransferManager_RetrieveBuffer_Args {
@@ -181,18 +181,18 @@ impl<'a> PjrtHtoDeviceManager<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.buffer_out.is_null() {
             return Err(self
                 .error("PJRT_AsyncHostToDeviceTransferManager_RetrieveBuffer returned null buffer")
-                .to_string());
+                );
         }
 
         Ok(args.buffer_out)
     }
 
-    pub fn retrieve_buffer_ref(&self, buffer_index: i32) -> Result<PJRTBuffer<'a>, String> {
+    pub fn retrieve_buffer_ref(&self, buffer_index: i32) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
         Ok(PJRTBuffer::new(
             self.rt,
             self.retrieve_buffer(buffer_index)?,
@@ -204,8 +204,8 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         buffer_index: i32,
         error_code: PJRT_Error_Code,
         error_message: &str,
-    ) -> Result<(), String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    ) -> Result<(), PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
@@ -213,7 +213,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
             .PJRT_AsyncHostToDeviceTransferManager_SetBufferError
             .ok_or_else(|| {
                 self.error("PJRT_AsyncHostToDeviceTransferManager_SetBufferError symbol not found")
-                    .to_string()
+                    
             })?;
 
         let error_message_bytes = error_message.as_bytes();
@@ -236,7 +236,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
@@ -246,15 +246,15 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         data: &[u8],
         offset: i64,
         is_last_transfer: bool,
-    ) -> Result<Option<PJRTEvent<'a>>, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    ) -> Result<Option<PJRTEvent<'a>>, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
         if offset < 0 {
-            return Err(self.error("transfer_data offset must be >= 0").to_string());
+            return Err(self.error("transfer_data offset must be >= 0"));
         }
 
         let transfer_size = i64::try_from(data.len()).map_err(|_| {
             self.error("transfer_data size does not fit i64")
-                .to_string()
+                
         })?;
 
         let f = self
@@ -263,7 +263,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
             .PJRT_AsyncHostToDeviceTransferManager_TransferData
             .ok_or_else(|| {
                 self.error("PJRT_AsyncHostToDeviceTransferManager_TransferData symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_AsyncHostToDeviceTransferManager_TransferData_Args {
@@ -285,7 +285,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
 
         Ok(if args.done_with_h2d_transfer.is_null() {
@@ -302,10 +302,10 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         shape_dims: &[i64],
         shape_element_type: PJRT_Buffer_Type,
         shape_layout: Option<*mut PJRT_Buffer_MemoryLayout>,
-    ) -> Result<Option<PJRTEvent<'a>>, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    ) -> Result<Option<PJRTEvent<'a>>, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
         if data.is_null() {
-            return Err(self.error("transfer_literal data is null").to_string());
+            return Err(self.error("transfer_literal data is null"));
         }
 
         let f = self
@@ -314,7 +314,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
             .PJRT_AsyncHostToDeviceTransferManager_TransferLiteral
             .ok_or_else(|| {
                 self.error("PJRT_AsyncHostToDeviceTransferManager_TransferLiteral symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_AsyncHostToDeviceTransferManager_TransferLiteral_Args {
@@ -337,7 +337,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
 
         Ok(if args.done_with_h2d_transfer.is_null() {
@@ -366,7 +366,7 @@ impl Drop for PjrtHtoDeviceManager<'_> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            let _ = error_to_string(self.rt.api(), err);
+            let _ = self.error("Error is non-null");
         }
 
         self.raw = ptr::null_mut();

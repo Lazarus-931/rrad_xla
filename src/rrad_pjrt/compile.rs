@@ -2,7 +2,7 @@ use crate::pjrt_sys::*;
 use crate::rrad_pjrt::device::PJRTDevice;
 use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::executable::PJRTLoadedExecutable;
-use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::loader::PjrtRuntime;
 use std::ptr::null_mut;
 
 pub struct PJRTCompiler<'a> {
@@ -19,9 +19,9 @@ impl<'a> PJRTCompiler<'a> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_Client, String> {
+    fn raw_checked(&self) -> Result<*mut PJRT_Client, PJRTError<'a>> {
         if self.raw.is_null() {
-            Err("PJRT_Client for compiling is null".to_string())
+            Err(self.error("PJRT_Client for compiling is null"))
         } else {
             Ok(self.raw)
         }
@@ -124,14 +124,14 @@ impl<'a> PJRTCompiler<'a> {
         self.compile_program(program, compile_options)
     }
 
-    pub fn addressable_devices(&self) -> Result<Vec<PJRTDevice<'a>>, String> {
+    pub fn addressable_devices(&self) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
         let raw = self.raw_checked()?;
 
         let f = self
             .rt
             .api()
             .PJRT_Client_AddressableDevices
-            .ok_or("PJRT_Client_AddressableDevices symbol not found")?;
+            .ok_or(self.error("PJRT_Client_AddressableDevices symbol not found"))?;
 
         let mut args = PJRT_Client_AddressableDevices_Args {
             struct_size: PJRT_Client_AddressableDevices_Args_STRUCT_SIZE as usize,
@@ -144,14 +144,13 @@ impl<'a> PJRTCompiler<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else if args.num_addressable_devices == 0 {
             Ok(Vec::new())
         } else if args.addressable_devices.is_null() {
             Err(
-                "PJRT_Client_AddressableDevices returned null devices with nonzero count"
-                    .to_string(),
-            )
+                self.error(
+                    "PJRT_Client_AddressableDevices returned null devices with nonzero count"))
         } else {
             let bytes = unsafe {
                 std::slice::from_raw_parts(args.addressable_devices, args.num_addressable_devices)

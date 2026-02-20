@@ -4,7 +4,7 @@ use crate::rrad_pjrt::device::PJRTDevice;
 use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::event::PJRTEvent;
 use crate::rrad_pjrt::execute_context::PJRTExecuteContext;
-use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::loader::PjrtRuntime;
 use std::ptr;
 use std::ptr::{null, null_mut};
 use std::slice::from_raw_parts;
@@ -259,9 +259,9 @@ impl<'a> PJRTLoadedExecutable<'a> {
     pub fn execute(
         &self,
         arguments: &[&PJRTBuffer<'a>],
-    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), String> {
+    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), PJRTError<'a>> {
         self.execute_with_execute_options(arguments, PJRTExecuteRunOptions::default())
-            .map_err(|e| e.to_string())
+            .map_err(|e| e)
     }
 
     pub fn execute_with_execute_options(
@@ -439,14 +439,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         self.execute_with_execute_options(arguments, options)
     }
 
-    pub fn num_replicas(&self) -> Result<usize, String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn num_replicas(&self) -> Result<usize, PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_NumReplicas
-            .ok_or("PJRT_Executable_NumReplicas symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_NumReplicas symbol not found"))?;
 
         let mut args = PJRT_Executable_NumReplicas_Args {
             struct_size: PJRT_Executable_NumReplicas_Args_STRUCT_SIZE as usize,
@@ -459,18 +459,18 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(args.num_replicas)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn num_partitions(&self) -> Result<usize, String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn num_partitions(&self) -> Result<usize, PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_NumPartitions
-            .ok_or("PJRT_Executable_NumPartitions symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_NumPartitions symbol not found"))?;
 
         let mut args = PJRT_Executable_NumPartitions_Args {
             struct_size: PJRT_Executable_NumPartitions_Args_STRUCT_SIZE as usize,
@@ -483,18 +483,18 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(args.num_partitions)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn destroy_executable_handle(&self) -> Result<(), String> {
-        let executable = self.executable().map_err(|e| e.to_string())?;
+    pub fn destroy_executable_handle(&self) -> Result<(), PJRTError<'a>> {
+        let executable = self.executable().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_Destroy
-            .ok_or("PJRT_Executable_Destroy symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_Destroy symbol not found"))?;
 
         let mut args = PJRT_Executable_Destroy_Args {
             struct_size: PJRT_Executable_Destroy_Args_STRUCT_SIZE as usize,
@@ -506,18 +506,18 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn delete(&self) -> Result<(), String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn delete(&self) -> Result<(), PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_LoadedExecutable_Delete
-            .ok_or("PJRT_LoadedExecutable_Delete symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_LoadedExecutable_Delete symbol not found"))?;
 
         let mut args = PJRT_LoadedExecutable_Delete_Args {
             struct_size: PJRT_LoadedExecutable_Delete_Args_STRUCT_SIZE as usize,
@@ -529,18 +529,18 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn is_deleted(&self) -> Result<bool, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn is_deleted(&self) -> Result<bool, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_LoadedExecutable_IsDeleted
-            .ok_or("PJRT_LoadedExecutable_IsDeleted symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_LoadedExecutable_IsDeleted symbol not found"))?;
 
         let mut args = PJRT_LoadedExecutable_IsDeleted_Args {
             struct_size: PJRT_LoadedExecutable_IsDeleted_Args_STRUCT_SIZE as usize,
@@ -553,18 +553,18 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(args.is_deleted)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn output_element_types(&self) -> Result<Vec<PJRT_Buffer_Type>, String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn output_element_types(&self) -> Result<Vec<PJRT_Buffer_Type>, PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_OutputElementTypes
-            .ok_or("PJRT_Executable_OutputElementTypes symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_OutputElementTypes symbol not found"))?;
 
         let mut args = PJRT_Executable_OutputElementTypes_Args {
             struct_size: PJRT_Executable_OutputElementTypes_Args_STRUCT_SIZE as usize,
@@ -576,15 +576,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.num_output_types == 0 {
             return Ok(Vec::new());
         }
         if args.output_types.is_null() {
             return Err(
-                "PJRT_Executable_OutputElementTypes returned null output_types with nonzero count"
-                    .to_string(),
+                self.error("PJRT_Executable_OutputElementTypes returned null output_types with nonzero count")
             );
         }
 
@@ -593,14 +592,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(output_types)
     }
 
-    pub fn addressable_devices(&self) -> Result<Vec<*mut PJRT_Device>, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn addressable_devices(&self) -> Result<Vec<*mut PJRT_Device>, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_LoadedExecutable_AddressableDevices
-            .ok_or("PJRT_LoadedExecutable_AddressableDevices symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_LoadedExecutable_AddressableDevices symbol not found"))?;
 
         let mut args = PJRT_LoadedExecutable_AddressableDevices_Args {
             struct_size: PJRT_LoadedExecutable_AddressableDevices_Args_STRUCT_SIZE as usize,
@@ -612,15 +611,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.num_addressable_devices == 0 {
             return Ok(Vec::new());
         }
         if args.addressable_devices.is_null() {
             return Err(
-                "PJRT_LoadedExecutable_AddressableDevices returned null list with nonzero count"
-                    .into(),
+                self.error("PJRT_LoadedExecutable_AddressableDevices returned null list with nonzero count")
             );
         }
 
@@ -629,7 +627,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(devices.to_vec())
     }
 
-    pub fn addressable_device_refs(&self) -> Result<Vec<PJRTDevice<'a>>, String> {
+    pub fn addressable_device_refs(&self) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
         Ok(self
             .addressable_devices()?
             .into_iter()
@@ -637,42 +635,42 @@ impl<'a> PJRTLoadedExecutable<'a> {
             .collect())
     }
 
-    pub fn addressable_device_ids(&self) -> Result<Vec<i32>, String> {
+    pub fn addressable_device_ids(&self) -> Result<Vec<i32>, PJRTError<'a>> {
         self.addressable_device_refs()?
             .iter()
             .map(PJRTDevice::id)
             .collect()
     }
 
-    pub fn addressable_device_kinds(&self) -> Result<Vec<String>, String> {
+    pub fn addressable_device_kinds(&self) -> Result<Vec<String>, PJRTError<'a>> {
         self.addressable_device_refs()?
             .iter()
             .map(PJRTDevice::kind)
             .collect()
     }
 
-    pub fn addressable_device_process_indices(&self) -> Result<Vec<i32>, String> {
+    pub fn addressable_device_process_indices(&self) -> Result<Vec<i32>, PJRTError<'a>> {
         self.addressable_device_refs()?
             .iter()
             .map(PJRTDevice::process_index)
             .collect()
     }
 
-    pub fn addressable_device_debug_strings(&self) -> Result<Vec<String>, String> {
+    pub fn addressable_device_debug_strings(&self) -> Result<Vec<String>, PJRTError<'a>> {
         self.addressable_device_refs()?
             .iter()
             .map(PJRTDevice::debug_string)
             .collect()
     }
 
-    pub fn fingerprint(&self) -> Result<String, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn fingerprint(&self) -> Result<String, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_LoadedExecutable_Fingerprint
-            .ok_or("PJRT_LoadedExecutable_Fingerprint symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_LoadedExecutable_Fingerprint symbol not found"))?;
 
         let mut args = PJRT_LoadedExecutable_Fingerprint_Args {
             struct_size: PJRT_LoadedExecutable_Fingerprint_Args_STRUCT_SIZE as usize,
@@ -685,11 +683,11 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
 
         if args.executable_fingerprint.is_null() {
-            return Err("PJRT_LoadedExecutable_Fingerprint returned null fingerprint".into());
+            return Err(self.error("PJRT_LoadedExecutable_Fingerprint returned null fingerprint"));
         }
 
         let bytes = unsafe {
@@ -701,14 +699,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
 
-    pub fn executable_fingerprint(&self) -> Result<String, String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn executable_fingerprint(&self) -> Result<String, PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_Fingerprint
-            .ok_or("PJRT_Executable_Fingerprint symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_Fingerprint symbol not found"))?;
 
         let mut args = PJRT_Executable_Fingerprint_Args {
             struct_size: PJRT_Executable_Fingerprint_Args_STRUCT_SIZE as usize,
@@ -720,15 +718,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.executable_fingerprint.is_null() {
             if args.executable_fingerprint_size == 0 {
                 return Ok(String::new());
             }
             return Err(
-                "PJRT_Executable_Fingerprint returned null fingerprint with nonzero size"
-                    .to_string(),
+                self.error("PJRT_Executable_Fingerprint returned null fingerprint with nonzero size")
             );
         }
 
@@ -741,14 +738,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
 
-    pub fn size_of_generated_code_in_bytes(&self) -> Result<i64, String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn size_of_generated_code_in_bytes(&self) -> Result<i64, PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_SizeOfGeneratedCodeInBytes
-            .ok_or("PJRT_Executable_SizeOfGeneratedCodeInBytes symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_SizeOfGeneratedCodeInBytes symbol not found"))?;
 
         let mut args = PJRT_Executable_SizeOfGeneratedCodeInBytes_Args {
             struct_size: PJRT_Executable_SizeOfGeneratedCodeInBytes_Args_STRUCT_SIZE as usize,
@@ -761,18 +758,18 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(args.size_in_bytes)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn output_memory_kinds(&self) -> Result<Vec<String>, String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn output_memory_kinds(&self) -> Result<Vec<String>, PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_OutputMemoryKinds
-            .ok_or("PJRT_Executable_OutputMemoryKinds symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_OutputMemoryKinds symbol not found"))?;
 
         let mut args = PJRT_Executable_OutputMemoryKinds_Args {
             struct_size: PJRT_Executable_OutputMemoryKinds_Args_STRUCT_SIZE as usize,
@@ -785,15 +782,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.num_outputs == 0 {
             return Ok(Vec::new());
         }
         if args.memory_kinds.is_null() || args.memory_kind_sizes.is_null() {
             return Err(
-                "PJRT_Executable_OutputMemoryKinds returned null lists with nonzero num_outputs"
-                    .to_string(),
+                self.error("PJRT_Executable_OutputMemoryKinds returned null lists with nonzero num_outputs")
             );
         }
 
@@ -809,10 +805,10 @@ impl<'a> PJRTLoadedExecutable<'a> {
                     out.push(String::new());
                     continue;
                 }
-                return Err(format!(
+                return Err(self.error(format!(
                     "PJRT_Executable_OutputMemoryKinds returned null memory kind at index {} with nonzero size",
                     i
-                ));
+                )));
             }
             let bytes = unsafe { from_raw_parts(kind_ptr as *const u8, kind_size) };
             out.push(String::from_utf8_lossy(bytes).into_owned());
@@ -821,14 +817,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(out)
     }
 
-    pub fn device_assignment_serialized(&self) -> Result<Vec<u8>, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn device_assignment_serialized(&self) -> Result<Vec<u8>, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_LoadedExecutable_GetDeviceAssignment
-            .ok_or("PJRT_LoadedExecutable_GetDeviceAssignment symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_LoadedExecutable_GetDeviceAssignment symbol not found"))?;
 
         let mut args = PJRT_LoadedExecutable_GetDeviceAssignment_Args {
             struct_size: PJRT_LoadedExecutable_GetDeviceAssignment_Args_STRUCT_SIZE as usize,
@@ -842,24 +838,23 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if !args.serialized_device_assignment.is_null()
             && args.serialized_device_assignment_deleter.is_none()
         {
             return Err(
-                "PJRT_LoadedExecutable_GetDeviceAssignment returned serialized object without deleter"
-                    .to_string(),
+                self.error(
+                    "PJRT_LoadedExecutable_GetDeviceAssignment returned serialized object without deleter")
             );
         }
 
         let result = if args.serialized_bytes_size == 0 {
             Ok(Vec::new())
         } else if args.serialized_bytes.is_null() {
-            Err(
-                "PJRT_LoadedExecutable_GetDeviceAssignment returned null bytes with nonzero size"
-                    .to_string(),
-            )
+            Err(self.error(
+                "PJRT_LoadedExecutable_GetDeviceAssignment returned null bytes with nonzero size",
+            ))
         } else {
             let bytes = unsafe {
                 from_raw_parts(
@@ -879,14 +874,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         result
     }
 
-    pub fn name(&self) -> Result<String, String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn name(&self) -> Result<String, PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let f = self
             .rt
             .api()
             .PJRT_Executable_Name
-            .ok_or("PJRT_Executable_Name symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_Name symbol not found"))?;
 
         let mut args = PJRT_Executable_Name_Args {
             struct_size: PJRT_Executable_Name_Args_STRUCT_SIZE as usize,
@@ -899,11 +894,11 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
 
         if args.executable_name.is_null() {
-            return Err("PJRT_Executable_Name returned null executable_name".into());
+            return Err(self.error("PJRT_Executable_Name returned null executable_name"));
         }
 
         let bytes =
@@ -911,14 +906,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
 
-    pub fn get_compiled_memory_stats(&self) -> Result<Vec<i64>, String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn get_compiled_memory_stats(&self) -> Result<Vec<i64>, PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let func = self
             .rt
             .api()
             .PJRT_Executable_GetCompiledMemoryStats
-            .ok_or("PJRT_Executable_GetCompiledMemoryStats symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_GetCompiledMemoryStats symbol not found"))?;
 
         let mut args = PJRT_Executable_GetCompiledMemoryStats_Args {
             struct_size: PJRT_Executable_GetCompiledMemoryStats_Args_STRUCT_SIZE as usize,
@@ -941,7 +936,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else {
             let stats = vec![
                 args.generated_code_size_in_bytes,
@@ -962,14 +957,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn get_cost_analysis(&self) -> Result<String, String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn get_cost_analysis(&self) -> Result<String, PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let func = self
             .rt
             .api()
             .PJRT_Executable_GetCostAnalysis
-            .ok_or("PJRT_Executable_GetCostAnalysis symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Executable_GetCostAnalysis symbol not found"))?;
 
         let mut args = PJRT_Executable_GetCostAnalysis_Args {
             struct_size: PJRT_Executable_GetCostAnalysis_Args_STRUCT_SIZE as usize,
@@ -982,21 +977,20 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else if args.num_properties == 0 {
             Ok(String::new())
         } else if args.properties.is_null() {
             Err(
-                "PJRT_Executable_GetCostAnalysis returned null properties with nonzero count"
-                    .to_string(),
-            )
+                self.error(
+                    "PJRT_Executable_GetCostAnalysis returned null properties with nonzero count"))
         } else {
             let properties = unsafe { from_raw_parts(args.properties, args.num_properties) };
             let names = properties
                 .iter()
                 .map(|property| {
                     if property.name.is_null() {
-                        "<null>".to_string()
+                        "<null>".to_owned()
                     } else {
                         let bytes = unsafe {
                             from_raw_parts(property.name as *const u8, property.name_size)
@@ -1010,14 +1004,14 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn optimized_program(&self) -> Result<(), String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn optimized_program(&self) -> Result<(), PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let func = self
             .rt
             .api()
             .PJRT_Executable_OptimizedProgram
-            .ok_or("PJRT_Exectuable_Optimized not found.")?;
+            .ok_or_else(|| self.error("PJRT_Exectuable_Optimized not found."))?;
 
         let mut args = PJRT_Executable_OptimizedProgram_Args {
             struct_size: PJRT_Executable_OptimizedProgram_Args_STRUCT_SIZE as usize,
@@ -1029,20 +1023,20 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else {
             Ok(())
         }
     }
 
-    pub fn output_dimension(&self) -> Result<i64, String> {
-        let exec = self.executable().map_err(|e| e.to_string())?;
+    pub fn output_dimension(&self) -> Result<i64, PJRTError<'a>> {
+        let exec = self.executable().map_err(|e| e)?;
 
         let func = self
             .rt
             .api()
             .PJRT_Executable_OutputDimensions
-            .ok_or("PJRT_Executable_OutputDimensions not found.")?;
+            .ok_or_else(|| self.error("PJRT_Executable_OutputDimensions not found."))?;
 
         let mut args = PJRT_Executable_OutputDimensions_Args {
             struct_size: PJRT_Executable_OutputDimensions_Args_STRUCT_SIZE as usize,
@@ -1055,11 +1049,11 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else if args.num_outputs == 0 {
-            Err("PJRT_Executable_OutputDimensions returned no outputs".to_string())
+            Err(self.error("PJRT_Executable_OutputDimensions returned no outputs"))
         } else if args.dims.is_null() {
-            Err("PJRT_Executable_OutputDimensions returned null dims".to_string())
+            Err(self.error("PJRT_Executable_OutputDimensions returned null dims"))
         } else {
             let dims = unsafe { from_raw_parts(args.dims as *const i64, args.num_outputs) };
             Ok(dims[0])
@@ -1086,7 +1080,7 @@ impl Drop for PJRTLoadedExecutable<'_> {
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
             // Drop must not panic; best-effort cleanup.
-            let _ = error_to_string(self.rt.api(), err);
+            let _ = self.error("Error is non-null");
         }
     }
 }

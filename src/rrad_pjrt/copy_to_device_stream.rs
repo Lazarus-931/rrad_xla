@@ -34,12 +34,12 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
         &self,
         chunk: *mut PJRT_Chunk,
         transfer_complete: Option<*mut PJRT_Event>,
-    ) -> Result<(), String> {
-        let stream = self.raw_checked().map_err(|e| e.to_string())?;
+    ) -> Result<(), PJRTError<'a>> {
+        let stream = self.raw_checked().map_err(|e| e)?;
         if chunk.is_null() {
             return Err(self
                 .error("PJRT_CopyToDeviceStream_AddChunk chunk is null")
-                .to_string());
+                );
         }
 
         let func = self
@@ -48,7 +48,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
             .PJRT_CopyToDeviceStream_AddChunk
             .ok_or_else(|| {
                 self.error("PJRT_CopyToDeviceStream_AddChunk symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_CopyToDeviceStream_AddChunk_Args {
@@ -61,14 +61,14 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else {
             Ok(())
         }
     }
 
-    pub fn current_bytes(&self) -> Result<i64, String> {
-        let stream = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn current_bytes(&self) -> Result<i64, PJRTError<'a>> {
+        let stream = self.raw_checked().map_err(|e| e)?;
 
         let func = self
             .rt
@@ -76,7 +76,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
             .PJRT_CopyToDeviceStream_CurrentBytes
             .ok_or_else(|| {
                 self.error("PJRT_CopyToDeviceStream_CurrentBytes symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_CopyToDeviceStream_CurrentBytes_Args {
@@ -88,14 +88,14 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else {
             Ok(args.current_bytes)
         }
     }
 
-    pub fn total_bytes(&self) -> Result<i64, String> {
-        let stream = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn total_bytes(&self) -> Result<i64, PJRTError<'a>> {
+        let stream = self.raw_checked().map_err(|e| e)?;
 
         let func = self
             .rt
@@ -103,7 +103,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
             .PJRT_CopyToDeviceStream_TotalBytes
             .ok_or_else(|| {
                 self.error("PJRT_CopyToDeviceStream_TotalBytes symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_CopyToDeviceStream_TotalBytes_Args {
@@ -115,14 +115,14 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else {
             Ok(args.total_bytes)
         }
     }
 
-    pub fn granule_size(&self) -> Result<i64, String> {
-        let stream = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn granule_size(&self) -> Result<i64, PJRTError<'a>> {
+        let stream = self.raw_checked().map_err(|e| e)?;
 
         let func = self
             .rt
@@ -130,7 +130,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
             .PJRT_CopyToDeviceStream_GranuleSize
             .ok_or_else(|| {
                 self.error("PJRT_CopyToDeviceStream_GranuleSize symbol not found")
-                    .to_string()
+                    
             })?;
 
         let mut args = PJRT_CopyToDeviceStream_GranuleSize_Args {
@@ -142,13 +142,13 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else {
             Ok(args.granule_size_in_bytes)
         }
     }
 
-    pub fn granul_size(&self) -> Result<i64, String> {
+    pub fn granul_size(&self) -> Result<i64, PJRTError<'a>> {
         self.granule_size()
     }
 }
@@ -171,7 +171,7 @@ impl Drop for PJRTCopyToDeviceStreamRef<'_> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            let _ = error_to_string(self.rt.api(), err);
+            let _ = self.error("Error is non-null");
         }
 
         self.raw = ptr::null_mut();

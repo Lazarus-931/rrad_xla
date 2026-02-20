@@ -5,7 +5,7 @@ use std::slice::from_raw_parts;
 use crate::pjrt_sys::*;
 use crate::rrad_pjrt::device::PJRTDevice;
 use crate::rrad_pjrt::error::PJRTError;
-use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::loader::PjrtRuntime;
 
 pub struct PJRTMemory<'a> {
     pub rt: &'a PjrtRuntime,

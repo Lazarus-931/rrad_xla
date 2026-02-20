@@ -54,7 +54,7 @@ impl Drop for PJRTAsyncTrackingEvent<'_> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            let _ = error_to_string(self.rt.api(), err);
+            let _ = PJRTError::invalid_arg(self.rt, "Error is non-null");
         }
     }
 }
@@ -64,11 +64,6 @@ pub struct PJRTDevice<'a> {
     pub raw: *mut PJRT_Device,
 }
 
-impl<'a> PJRTDevice<'a> {
-    pub fn is_null(&self) -> bool {
-        self.raw.is_null()
-    }
-}
 
 impl<'a> PJRTDevice<'a> {
     pub fn new(rt: &'a PjrtRuntime, raw_device: *mut PJRT_Device) -> Self {
@@ -77,8 +72,13 @@ impl<'a> PJRTDevice<'a> {
             raw: raw_device,
         }
     }
+    pub fn is_null(&self) -> bool {
+        self.raw.is_null()
+    }
 
-    pub fn raw(&self) -> *mut PJRT_Device {
+
+
+    pub(crate) fn raw(&self) -> *mut PJRT_Device {
         self.raw
     }
 
@@ -86,7 +86,7 @@ impl<'a> PJRTDevice<'a> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_Device, PJRTError> {
+    fn raw_checked(&self) -> Result<*mut PJRT_Device, PJRTError<'a>> {
         if self.raw.is_null() {
             Err(self.error("PJRT_Device is null"))
         } else {
@@ -94,12 +94,11 @@ impl<'a> PJRTDevice<'a> {
         }
     }
 
-    pub fn description(&self) -> Result<PJRTDeviceDescriptionRef<'a>, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn description(&self) -> Result<PJRTDeviceDescriptionRef<'a>, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let get_desc = self.rt.api().PJRT_Device_GetDescription.ok_or_else(|| {
-            self.error("PJRT_Device_GetDescription symbol not found")
-                .to_string()
+            self.error("PJRT_Device_GetDescription esymbol not found")
         })?;
 
         let mut get_desc_args = PJRT_Device_GetDescription_Args {
@@ -110,12 +109,12 @@ impl<'a> PJRTDevice<'a> {
         };
         let err = unsafe { get_desc(&mut get_desc_args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if get_desc_args.device_description.is_null() {
             return Err(self
-                .error("PJRT_Device_GetDescription returned null device_description")
-                .to_string());
+                .error("PJRT_Device_GetDescription returned null device_description"))
+                
         }
 
         Ok(PJRTDeviceDescriptionRef::new(
@@ -124,12 +123,11 @@ impl<'a> PJRTDevice<'a> {
         ))
     }
 
-    pub fn is_addressable(&self) -> Result<bool, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn is_addressable(&self) -> Result<bool, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self.rt.api().PJRT_Device_IsAddressable.ok_or_else(|| {
-            self.error("PJRT_Device_IsAddressable symbol not found")
-                .to_string()
+            self.error("PJRT_Device_IsAddressable esymbol not found")
         })?;
 
         let mut args = PJRT_Device_IsAddressable_Args {
@@ -143,16 +141,15 @@ impl<'a> PJRTDevice<'a> {
         if err.is_null() {
             Ok(args.is_addressable)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn memory_stats(&self) -> Result<PJRTDeviceMemoryStats, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn memory_stats(&self) -> Result<PJRTDeviceMemoryStats, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self.rt.api().PJRT_Device_MemoryStats.ok_or_else(|| {
-            self.error("PJRT_Device_MemoryStats symbol not found")
-                .to_string()
+            self.error("PJRT_Device_MemoryStats esymbol not found")
         })?;
 
         let mut args = PJRT_Device_MemoryStats_Args {
@@ -184,7 +181,7 @@ impl<'a> PJRTDevice<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
 
         Ok(PJRTDeviceMemoryStats {
@@ -217,12 +214,11 @@ impl<'a> PJRTDevice<'a> {
         launch_id: i32,
         error_code: PJRT_Error_Code,
         error_message: &str,
-    ) -> Result<bool, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    ) -> Result<bool, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self.rt.api().PJRT_Device_PoisonExecution.ok_or_else(|| {
-            self.error("PJRT_Device_PoisonExecution symbol not found")
-                .to_string()
+            self.error("PJRT_Device_PoisonExecution esymbol not found")
         })?;
 
         let error_message_bytes = error_message.as_bytes();
@@ -245,15 +241,15 @@ impl<'a> PJRTDevice<'a> {
         if err.is_null() {
             Ok(args.poisoned)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
     pub fn create_async_tracking_event(
         &self,
         description: &str,
-    ) -> Result<PJRTAsyncTrackingEvent<'a>, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    ) -> Result<PJRTAsyncTrackingEvent<'a>, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
@@ -261,7 +257,6 @@ impl<'a> PJRTDevice<'a> {
             .PJRT_Device_CreateAsyncTrackingEvent
             .ok_or_else(|| {
                 self.error("PJRT_Device_CreateAsyncTrackingEvent symbol not found")
-                    .to_string()
             })?;
 
         let description_bytes = description.as_bytes();
@@ -280,23 +275,21 @@ impl<'a> PJRTDevice<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.event.is_null() {
             return Err(self
-                .error("PJRT_Device_CreateAsyncTrackingEvent returned null event")
-                .to_string());
+                .error("PJRT_Device_CreateAsyncTrackingEvent returned null event"))
         }
 
         Ok(PJRTAsyncTrackingEvent::new(self.rt, args.event))
     }
 
-    pub fn local_hardware_id(&self) -> Result<i32, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn local_hardware_id(&self) -> Result<i32, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self.rt.api().PJRT_Device_LocalHardwareId.ok_or_else(|| {
-            self.error("PJRT_Device_LocalHardwareId symbol not found")
-                .to_string()
+            self.error("PJRT_Device_LocalHardwareId esymbol not found")
         })?;
 
         let mut args = PJRT_Device_LocalHardwareId_Args {
@@ -310,12 +303,12 @@ impl<'a> PJRTDevice<'a> {
         if err.is_null() {
             Ok(args.local_hardware_id)
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         }
     }
 
-    pub fn addressable_memories(&self) -> Result<Vec<PJRTMemory<'a>>, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn addressable_memories(&self) -> Result<Vec<PJRTMemory<'a>>, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
             .rt
@@ -323,7 +316,6 @@ impl<'a> PJRTDevice<'a> {
             .PJRT_Device_AddressableMemories
             .ok_or_else(|| {
                 self.error("PJRT_Device_AddressableMemories symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_Device_AddressableMemories_Args {
@@ -336,15 +328,14 @@ impl<'a> PJRTDevice<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.num_memories == 0 {
             return Ok(Vec::new());
         }
         if args.memories.is_null() {
             return Err(self
-                .error("PJRT_Device_AddressableMemories returned null memories with nonzero count")
-                .to_string());
+                .error("PJRT_Device_AddressableMemories returned null memories with nonzero count"))
         }
 
         let memories = unsafe { std::slice::from_raw_parts(args.memories, args.num_memories) };
@@ -356,12 +347,11 @@ impl<'a> PJRTDevice<'a> {
             .collect())
     }
 
-    pub fn default_memory(&self) -> Result<*mut PJRT_Memory, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn default_memory(&self) -> Result<*mut PJRT_Memory, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e )?;
 
         let f = self.rt.api().PJRT_Device_DefaultMemory.ok_or_else(|| {
             self.error("PJRT_Device_DefaultMemory symbol not found")
-                .to_string()
         })?;
 
         let mut args = PJRT_Device_DefaultMemory_Args {
@@ -373,46 +363,45 @@ impl<'a> PJRTDevice<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.memory.is_null() {
             return Err(self
-                .error("PJRT_Device_DefaultMemory returned null memory")
-                .to_string());
+                .error("PJRT_Device_DefaultMemory returned null memory"))
         }
         Ok(args.memory)
     }
 
-    pub fn default_memory_ref(&self) -> Result<PJRTMemory<'a>, String> {
+    pub fn default_memory_ref(&self) -> Result<PJRTMemory<'a>, PJRTError<'a>> {
         Ok(PJRTMemory::new(self.rt, self.default_memory()?))
     }
 
-    pub fn id(&self) -> Result<i32, String> {
+    pub fn id(&self) -> Result<i32, PJRTError<'a>> {
         self.description()?.id()
     }
 
-    pub fn kind(&self) -> Result<String, String> {
+    pub fn kind(&self) -> Result<String, PJRTError<'a>> {
         self.description()?.kind()
     }
 
-    pub fn process_index(&self) -> Result<i32, String> {
+    pub fn process_index(&self) -> Result<i32, PJRTError<'a>> {
         self.description()?.process_index()
     }
 
-    pub fn debug_string(&self) -> Result<String, String> {
+    pub fn debug_string(&self) -> Result<String, PJRTError<'a>> {
         self.description()?.debug_string()
     }
 
-    pub fn to_string(&self) -> Result<String, String> {
+    pub fn to_string(&self) -> Result<String, PJRTError<'a>> {
         self.description()?.to_string()
     }
 
-    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, String> {
+    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
         self.description()?.attributes()
     }
 
     // Backward compatibility with existing call sites.
-    pub fn debug_error(&self) -> Result<String, String> {
+    pub fn debug_error(&self) -> Result<String, PJRTError<'a>> {
         self.debug_string()
     }
 }

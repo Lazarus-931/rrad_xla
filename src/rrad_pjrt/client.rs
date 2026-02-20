@@ -567,7 +567,7 @@ impl<'a> PJRTClient<'a> {
                 .devices()
                 .into_iter()
                 .next()
-                .ok_or_else(|| self.error("PJRT_Client has no devices"))?
+                .ok_or_else(|| self.error("PJRT_Client has no devices"))?[0]
                 .raw(),
         };
         if device.is_null() {
@@ -644,7 +644,7 @@ impl<'a> PJRTClient<'a> {
                 .devices()
                 .into_iter()
                 .next()
-                .ok_or_else(|| self.error("PJRT_Client has no devices"))?
+                .ok_or_else(|| self.error("PJRT_Client has no devices"))?[0]
                 .raw(),
         };
 

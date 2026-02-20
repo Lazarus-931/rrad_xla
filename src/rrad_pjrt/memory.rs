@@ -29,14 +29,14 @@ impl<'a> PJRTMemory<'a> {
         }
     }
 
-    pub fn id(&self) -> Result<usize, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn id(&self) -> Result<usize, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let func = self
             .rt
             .api()
             .PJRT_Memory_Id
-            .ok_or_else(|| self.error("PJRT_Memory_Id symbol not found").to_string())?;
+            .ok_or_else(|| self.error("PJRT_Memory_Id symbol not found"))?;
 
         let mut args = PJRT_Memory_Id_Args {
             struct_size: PJRT_Memory_Id_Args_STRUCT_SIZE as usize,
@@ -47,20 +47,20 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Erroris non-null"))
         } else {
             Ok(args.id as usize)
         }
     }
 
-    pub fn kind(&self) -> Result<String, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn kind(&self) -> Result<String, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let func = self
             .rt
             .api()
             .PJRT_Memory_Kind
-            .ok_or_else(|| self.error("PJRT_Memory_Kind symbol not found").to_string())?;
+            .ok_or_else(|| self.error("PJRT_Memory_Kind symbol not found"))?;
 
         let mut args = PJRT_Memory_Kind_Args {
             struct_size: PJRT_Memory_Kind_Args_STRUCT_SIZE as usize,
@@ -72,25 +72,23 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else if args.kind_size == 0 {
             Ok(String::new())
         } else if args.kind.is_null() {
             Err(self
-                .error("PJRT_Memory_Kind returned null kind with nonzero size")
-                .to_string())
+                .error("PJRT_Memory_Kind returned null kind with nonzero size"))
         } else {
             let bytes = unsafe { from_raw_parts(args.kind as *const u8, args.kind_size) };
             Ok(String::from_utf8_lossy(bytes).into_owned())
         }
     }
 
-    pub fn kind_id(&self) -> Result<i32, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn kind_id(&self) -> Result<i32, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let func = self.rt.api().PJRT_Memory_Kind_Id.ok_or_else(|| {
             self.error("PJRT_Memory_Kind_Id symbol not found")
-                .to_string()
         })?;
 
         let mut args = PJRT_Memory_Kind_Id_Args {
@@ -102,18 +100,17 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else {
             Ok(args.kind_id)
         }
     }
 
-    pub fn debug_string(&self) -> Result<String, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn debug_string(&self) -> Result<String, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let func = self.rt.api().PJRT_Memory_DebugString.ok_or_else(|| {
             self.error("PJRT_Memory_DebugString symbol not found")
-                .to_string()
         })?;
 
         let mut args = PJRT_Memory_DebugString_Args {
@@ -126,13 +123,12 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else if args.debug_string_size == 0 {
             Ok(String::new())
         } else if args.debug_string.is_null() {
             Err(self
-                .error("PJRT_Memory_DebugString returned null debug string with nonzero size")
-                .to_string())
+                .error("PJRT_Memory_DebugString returned null debug string with nonzero size"))
         } else {
             let bytes =
                 unsafe { from_raw_parts(args.debug_string as *const u8, args.debug_string_size) };
@@ -140,12 +136,11 @@ impl<'a> PJRTMemory<'a> {
         }
     }
 
-    pub fn to_string(&self) -> Result<String, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn to_string(&self) -> Result<String, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let func = self.rt.api().PJRT_Memory_ToString.ok_or_else(|| {
             self.error("PJRT_Memory_ToString symbol not found")
-                .to_string()
         })?;
 
         let mut args = PJRT_Memory_ToString_Args {
@@ -158,21 +153,20 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(error_to_string(self.rt.api(), err))
+            Err(self.error("Error is non-null"))
         } else if args.to_string_size == 0 {
             Ok(String::new())
         } else if args.to_string.is_null() {
             Err(self
-                .error("PJRT_Memory_ToString returned null string with nonzero size")
-                .to_string())
+                .error("PJRT_Memory_ToString returned null string with nonzero size"))
         } else {
             let bytes = unsafe { from_raw_parts(args.to_string as *const u8, args.to_string_size) };
             Ok(String::from_utf8_lossy(bytes).into_owned())
         }
     }
 
-    pub fn addressable_by_device(&self) -> Result<Vec<PJRTDevice<'a>>, String> {
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+    pub fn addressable_by_device(&self) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let func = self
             .rt
@@ -180,7 +174,6 @@ impl<'a> PJRTMemory<'a> {
             .PJRT_Memory_AddressableByDevices
             .ok_or_else(|| {
                 self.error("PJRT_Memory_AddressableByDevices symbol not found")
-                    .to_string()
             })?;
 
         let mut args = PJRT_Memory_AddressableByDevices_Args {
@@ -193,15 +186,14 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.rt.api(), err));
+            return Err(self.error("Error is non-null"));
         }
         if args.num_devices == 0 {
             return Ok(Vec::new());
         }
         if args.devices.is_null() {
             return Err(self
-                .error("PJRT_Memory_AddressableByDevices returned null devices with nonzero count")
-                .to_string());
+                .error("PJRT_Memory_AddressableByDevices returned null devices with nonzero count"));
         }
 
         let devices = unsafe { from_raw_parts(args.devices, args.num_devices) };

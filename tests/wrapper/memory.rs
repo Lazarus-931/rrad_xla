@@ -1,4 +1,6 @@
+use rrad_pjrt::rrad_pjrt::error::PJRTError;
 use super::tools::runtime_or_skip;
+
 
 #[test]
 fn memory_id_smoke() -> Result<(), String> {

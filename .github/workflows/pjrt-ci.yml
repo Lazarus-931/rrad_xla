@@ -81,7 +81,7 @@ jobs:
 
   pjrt_loader_integration:
     name: PJRT Loader Integration (macOS)
-    runs-on: macos-13
+    runs-on: macos-14
     needs: rust_tests
     timeout-minutes: 180
     steps:
@@ -152,7 +152,7 @@ jobs:
   jax_plugin_smoke:
     name: JAX Plugin Smoke (Manual)
     if: github.event_name == 'workflow_dispatch'
-    runs-on: macos-13
+    runs-on: macos-14
     needs: pjrt_loader_integration
     timeout-minutes: 90
     steps:

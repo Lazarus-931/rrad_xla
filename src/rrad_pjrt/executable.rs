@@ -8,6 +8,7 @@ use crate::rrad_pjrt::loader::PjrtRuntime;
 use std::ptr;
 use std::ptr::{null, null_mut};
 use std::slice::from_raw_parts;
+use std::sync::Mutex;
 
 pub struct PJRTLoadedExecutable<'a> {
     pub rt: &'a PjrtRuntime,
@@ -17,7 +18,7 @@ pub struct PJRTLoadedExecutable<'a> {
 // Back-compat with the original name in this crate.
 pub type PJRTExecutable<'a> = PJRTLoadedExecutable<'a>;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub struct PJRTExecuteRunOptions<'a> {
     pub execute_context: Option<&'a PJRTExecuteContext<'a>>,
     pub launch_id: i32,
@@ -25,6 +26,248 @@ pub struct PJRTExecuteRunOptions<'a> {
     pub execute_device: Option<*mut PJRT_Device>,
     pub num_send_ops: usize,
     pub num_recv_ops: usize,
+    pub send_callbacks: &'a [PJRTSendCallbackRegistration],
+    pub recv_callbacks: &'a [PJRTRecvCallbackRegistration],
+}
+
+impl Default for PJRTExecuteRunOptions<'_> {
+    fn default() -> Self {
+        Self {
+            execute_context: None,
+            launch_id: 0,
+            non_donatable_input_indices: &[],
+            execute_device: None,
+            num_send_ops: 0,
+            num_recv_ops: 0,
+            send_callbacks: &[],
+            recv_callbacks: &[],
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct PJRTSendCallbackInvocation {
+    pub chunk: *mut PJRT_Chunk,
+    pub total_size_in_bytes: usize,
+    pub done: bool,
+}
+
+#[derive(Clone, Copy)]
+pub struct PJRTRecvCallbackInvocation {
+    pub stream: *mut PJRT_CopyToDeviceStream,
+}
+
+pub type PJRTSendCallbackFn = fn(PJRTSendCallbackInvocation) -> Result<(), String>;
+pub type PJRTRecvCallbackFn = fn(PJRTRecvCallbackInvocation) -> Result<(), String>;
+
+#[derive(Clone, Copy)]
+pub struct PJRTSendCallbackRegistration {
+    pub channel_id: i64,
+    pub callback: PJRTSendCallbackFn,
+}
+
+#[derive(Clone, Copy)]
+pub struct PJRTRecvCallbackRegistration {
+    pub channel_id: i64,
+    pub callback: PJRTRecvCallbackFn,
+}
+
+struct SendCallbackState {
+    callback: PJRTSendCallbackFn,
+    first_error: Mutex<Option<String>>,
+}
+
+impl SendCallbackState {
+    fn new(callback: PJRTSendCallbackFn) -> Self {
+        Self {
+            callback,
+            first_error: Mutex::new(None),
+        }
+    }
+
+    fn set_first_error(&self, message: String) {
+        if let Ok(mut guard) = self.first_error.lock() {
+            if guard.is_none() {
+                *guard = Some(message);
+            }
+        }
+    }
+
+    fn first_error(&self) -> Option<String> {
+        self.first_error.lock().ok().and_then(|guard| guard.clone())
+    }
+}
+
+struct RecvCallbackState {
+    callback: PJRTRecvCallbackFn,
+    first_error: Mutex<Option<String>>,
+}
+
+impl RecvCallbackState {
+    fn new(callback: PJRTRecvCallbackFn) -> Self {
+        Self {
+            callback,
+            first_error: Mutex::new(None),
+        }
+    }
+
+    fn set_first_error(&self, message: String) {
+        if let Ok(mut guard) = self.first_error.lock() {
+            if guard.is_none() {
+                *guard = Some(message);
+            }
+        }
+    }
+
+    fn first_error(&self) -> Option<String> {
+        self.first_error.lock().ok().and_then(|guard| guard.clone())
+    }
+}
+
+pub struct ExecuteCallbackKeepalive {
+    send_states: Vec<Box<SendCallbackState>>,
+    recv_states: Vec<Box<RecvCallbackState>>,
+    _send_infos: Vec<PJRT_SendCallbackInfo>,
+    _recv_infos: Vec<PJRT_RecvCallbackInfo>,
+    send_info_ptrs: Vec<*mut PJRT_SendCallbackInfo>,
+    recv_info_ptrs: Vec<*mut PJRT_RecvCallbackInfo>,
+}
+
+impl ExecuteCallbackKeepalive {
+    fn new(options: &PJRTExecuteRunOptions<'_>) -> Self {
+        let send_states: Vec<Box<SendCallbackState>> = options
+            .send_callbacks
+            .iter()
+            .map(|reg| Box::new(SendCallbackState::new(reg.callback)))
+            .collect();
+        let recv_states: Vec<Box<RecvCallbackState>> = options
+            .recv_callbacks
+            .iter()
+            .map(|reg| Box::new(RecvCallbackState::new(reg.callback)))
+            .collect();
+
+        let mut send_infos: Vec<PJRT_SendCallbackInfo> = options
+            .send_callbacks
+            .iter()
+            .enumerate()
+            .map(|(idx, reg)| PJRT_SendCallbackInfo {
+                channel_id: reg.channel_id,
+                user_arg: (&*send_states[idx]) as *const SendCallbackState as *mut libc::c_void,
+                send_callback: Some(send_callback_trampoline),
+            })
+            .collect();
+        let send_info_ptrs: Vec<*mut PJRT_SendCallbackInfo> =
+            send_infos.iter_mut().map(|info| info as *mut _).collect();
+
+        let mut recv_infos: Vec<PJRT_RecvCallbackInfo> = options
+            .recv_callbacks
+            .iter()
+            .enumerate()
+            .map(|(idx, reg)| PJRT_RecvCallbackInfo {
+                channel_id: reg.channel_id,
+                user_arg: (&*recv_states[idx]) as *const RecvCallbackState as *mut libc::c_void,
+                recv_callback: Some(recv_callback_trampoline),
+            })
+            .collect();
+        let recv_info_ptrs: Vec<*mut PJRT_RecvCallbackInfo> =
+            recv_infos.iter_mut().map(|info| info as *mut _).collect();
+
+        Self {
+            send_states,
+            recv_states,
+            _send_infos: send_infos,
+            _recv_infos: recv_infos,
+            send_info_ptrs,
+            recv_info_ptrs,
+        }
+    }
+
+    fn send_callbacks_ptr(&mut self) -> *mut *mut PJRT_SendCallbackInfo {
+        if self.send_info_ptrs.is_empty() {
+            ptr::null_mut()
+        } else {
+            self.send_info_ptrs.as_mut_ptr()
+        }
+    }
+
+    fn recv_callbacks_ptr(&mut self) -> *mut *mut PJRT_RecvCallbackInfo {
+        if self.recv_info_ptrs.is_empty() {
+            ptr::null_mut()
+        } else {
+            self.recv_info_ptrs.as_mut_ptr()
+        }
+    }
+
+    fn first_send_error(&self) -> Option<String> {
+        self.send_states.iter().find_map(|state| state.first_error())
+    }
+
+    fn first_recv_error(&self) -> Option<String> {
+        self.recv_states.iter().find_map(|state| state.first_error())
+    }
+}
+
+unsafe fn callback_error_from_message(
+    callback_error: *mut PJRT_CallbackError,
+    message: &str,
+) -> *mut PJRT_Error {
+    if callback_error.is_null() {
+        return ptr::null_mut();
+    }
+
+    let Some(make_error) = *callback_error else {
+        return ptr::null_mut();
+    };
+
+    let bytes = message.as_bytes();
+    make_error(
+        PJRT_Error_Code_PJRT_Error_Code_INTERNAL,
+        if bytes.is_empty() {
+            ptr::null()
+        } else {
+            bytes.as_ptr() as *const libc::c_char
+        },
+        bytes.len(),
+    )
+}
+
+unsafe extern "C" fn send_callback_trampoline(
+    chunk: *mut PJRT_Chunk,
+    callback_error: *mut PJRT_CallbackError,
+    total_size_in_bytes: usize,
+    done: bool,
+    user_arg: *mut libc::c_void,
+) -> *mut PJRT_Error {
+    if user_arg.is_null() {
+        return callback_error_from_message(callback_error, "send callback user_arg is null");
+    }
+
+    let state = &*(user_arg as *const SendCallbackState);
+    match (state.callback)(PJRTSendCallbackInvocation {
+        chunk,
+        total_size_in_bytes,
+        done,
+    }) {
+        Ok(()) => ptr::null_mut(),
+        Err(message) => {
+            state.set_first_error(message.clone());
+            callback_error_from_message(callback_error, &message)
+        }
+    }
+}
+
+unsafe extern "C" fn recv_callback_trampoline(
+    stream: *mut PJRT_CopyToDeviceStream,
+    user_arg: *mut libc::c_void,
+) {
+    if user_arg.is_null() {
+        return;
+    }
+
+    let state = &*(user_arg as *const RecvCallbackState);
+    if let Err(message) = (state.callback)(PJRTRecvCallbackInvocation { stream }) {
+        state.set_first_error(message);
+    }
 }
 
 impl<'a> PJRTLoadedExecutable<'a> {
@@ -283,10 +526,30 @@ impl<'a> PJRTLoadedExecutable<'a> {
             return Err(self.error("execute arguments contain null PJRT_Buffer"));
         }
 
-        if options.num_send_ops > 0 || options.num_recv_ops > 0 {
-            return Err(
-                self.error("send/recv callback counts are not supported yet (callbacks are null)")
-            );
+        let effective_num_send_ops = if options.num_send_ops == 0 {
+            options.send_callbacks.len()
+        } else {
+            options.num_send_ops
+        };
+        if effective_num_send_ops != options.send_callbacks.len() {
+            return Err(self.error(format!(
+                "num_send_ops ({}) must match send_callbacks.len() ({})",
+                options.num_send_ops,
+                options.send_callbacks.len()
+            )));
+        }
+
+        let effective_num_recv_ops = if options.num_recv_ops == 0 {
+            options.recv_callbacks.len()
+        } else {
+            options.num_recv_ops
+        };
+        if effective_num_recv_ops != options.recv_callbacks.len() {
+            return Err(self.error(format!(
+                "num_recv_ops ({}) must match recv_callbacks.len() ({})",
+                options.num_recv_ops,
+                options.recv_callbacks.len()
+            )));
         }
 
         if options
@@ -329,13 +592,15 @@ impl<'a> PJRTLoadedExecutable<'a> {
             return Err(self.error("execute_device is null"));
         }
 
+        let mut callback_keepalive = ExecuteCallbackKeepalive::new(&options);
+
         let mut pjrt_options = PJRT_ExecuteOptions {
             struct_size: PJRT_ExecuteOptions_STRUCT_SIZE as usize,
             extension_start: ptr::null_mut(),
-            send_callbacks: ptr::null_mut(),
-            recv_callbacks: ptr::null_mut(),
-            num_send_ops: options.num_send_ops,
-            num_recv_ops: options.num_recv_ops,
+            send_callbacks: callback_keepalive.send_callbacks_ptr(),
+            recv_callbacks: callback_keepalive.recv_callbacks_ptr(),
+            num_send_ops: effective_num_send_ops,
+            num_recv_ops: effective_num_recv_ops,
             launch_id: options.launch_id,
             non_donatable_input_indices: non_donatable_ptr,
             num_non_donatable_input_indices: options.non_donatable_input_indices.len(),
@@ -364,6 +629,13 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
             return Err(PJRTError::new(self.rt, err));
+        }
+
+        if let Some(message) = callback_keepalive.first_send_error() {
+            return Err(self.error(format!("send callback failed: {message}")));
+        }
+        if let Some(message) = callback_keepalive.first_recv_error() {
+            return Err(self.error(format!("recv callback failed: {message}")));
         }
 
         if args.num_args != argument_ptrs.len() {
@@ -398,7 +670,11 @@ impl<'a> PJRTLoadedExecutable<'a> {
             .into_iter()
             .map(|raw| PJRTBuffer::new(self.rt, raw))
             .collect();
-        let event = PJRTEvent::new(self.rt, device_complete_event);
+        let event = PJRTEvent::new_with_keepalive(
+            self.rt,
+            device_complete_event,
+            Box::new(callback_keepalive),
+        );
         Ok((output_buffers, event))
     }
 
@@ -411,6 +687,8 @@ impl<'a> PJRTLoadedExecutable<'a> {
         launch_id: i32,
         non_donatable_input_indices: &'a [i64],
         execute_device: *mut PJRT_Device,
+        send_callbacks: &'a [PJRTSendCallbackRegistration],
+        recv_callbacks: &'a [PJRTRecvCallbackRegistration],
     ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), PJRTError<'a>> {
         let options = PJRTExecuteRunOptions {
             execute_context,
@@ -423,6 +701,8 @@ impl<'a> PJRTLoadedExecutable<'a> {
             },
             num_send_ops,
             num_recv_ops,
+            send_callbacks,
+            recv_callbacks,
         };
         self.execute_with_execute_options(arguments, options)
     }

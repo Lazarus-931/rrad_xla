@@ -1,13 +1,21 @@
 use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
-
+use std::sync::atomic::{AtomicBool, Ordering};
 use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_ExecuteContext_Destroy_Args,
     PJRT_ExecuteContext_Destroy_Args_STRUCT_SIZE,
 };
+use rrad_pjrt::rrad_pjrt::executable::{PJRTRecvCallbackInvocation,
+                                       PJRTRecvCallbackRegistration,
+                                       PJRTSendCallbackInvocation,
+                                       PJRTSendCallbackRegistration};
 use rrad_pjrt::rrad_pjrt::execute_context::PJRTExecuteContext;
 use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 use super::tools::TestResult;
+
+const SEND_CHANNEL_ID: i64 = 1;
+const RECV_CHANNEL_ID: i64 = 2;
+pub const BUFFER_SHAPE_DIM: &[i64] = &[1, 2, 3, 4, 5];
 
 const MODULE_ADD_ONE: &str = r#"module {
 func.func @main(%arg0: tensor<f32>) -> tensor<f32> {
@@ -23,6 +31,55 @@ func.func @main(%arg0: tensor<f32>) -> (tensor<f32>, tensor<f32>) {
   %2 = mhlo.add %0, %1 : tensor<f32>
   return %2, %0 : tensor<f32>, tensor<f32>
 }}"#;
+
+const MODULE_SEND_CALLBACK: &str = r#"module {
+    func.func @main(%arg0: tensor<f32>) -> tensor<f32> {
+      %0 = "mhlo.copy"(%arg0) : (tensor<f32>) -> tensor<f32>
+      %1 = mhlo.constant dense<1.000000e+00> : tensor<f32>
+      %2 = mhlo.add %0, %1 : tensor<f32>
+
+      %tok0 = mhlo.create_token : !mhlo.token
+      %tok1 = "mhlo.send"(%0, %tok0) {
+        channel_handle = #mhlo.channel_handle<handle = 1, type = 3>,
+        is_host_transfer = true
+      } : (tensor<f32>, !mhlo.token) -> !mhlo.token
+
+      return %2 : tensor<f32>
+    }
+  }"#;
+
+const MODULE_RECV_CALLBACK: &str = r#"module {
+    func.func @main(%arg0: tensor<f32>) -> tensor<f32> {
+      %tok0 = mhlo.create_token : !mhlo.token
+      %recv, %tok1 = "mhlo.recv"(%tok0) {
+        channel_handle = #mhlo.channel_handle<handle = 1, type = 3>,
+        is_host_transfer = true
+      } : (!mhlo.token) -> (tensor<f32>, !mhlo.token)
+
+      %out = mhlo.add %arg0, %recv : tensor<f32>
+      return %out : tensor<f32>
+    }
+  }"#;
+
+const MODULE_SEND_AND_RECV: &str = r#"module {
+    func.func @main(%arg0: tensor<f32>) -> tensor<f32> {
+      %tok0 = mhlo.create_token : !mhlo.token
+
+      %tok1 = "mhlo.send"(%arg0, %tok0) {
+        channel_handle = #mhlo.channel_handle<handle = 1, type = 3>,
+        is_host_transfer = true
+      } : (tensor<f32>, !mhlo.token) -> !mhlo.token
+
+      %recv, %tok2 = "mhlo.recv"(%tok1) {
+        channel_handle = #mhlo.channel_handle<handle = 2, type = 3>,
+        is_host_transfer = true
+      } : (!mhlo.token) -> (tensor<f32>, !mhlo.token)
+
+      %out = mhlo.add %arg0, %recv : tensor<f32>
+      return %out : tensor<f32>
+    }
+  }"#;
+
 
 fn resolve_plugin_path() -> Option<PathBuf> {
     if let Ok(path) = std::env::var("PJRT_PLUGIN") {
@@ -232,7 +289,7 @@ fn multi_output_execute_with_context_smoke() -> TestResult {
         .into());
     }
 
-    let mut first_bytes = [0u8; size_of::<f32>()];
+    let mut first_bytes = [0u8; std::mem::size_of::<f32>()];
     outputs[0].to_host_buffer_blocking(&mut first_bytes)?;
     let first = f32::from_le_bytes(first_bytes);
     if (first - 42.0).abs() > 1e-6 {
@@ -280,6 +337,8 @@ fn execute_with_options_launch_id_and_device_smoke() -> TestResult {
             1234,
             &[],
             device.raw(),
+            &[],
+            &[],
         )
         .map_err(|e| e.to_string())?;
     done.ok()?;
@@ -303,7 +362,7 @@ fn execute_with_options_launch_id_and_device_smoke() -> TestResult {
 }
 
 #[test]
-fn execute_with_options_rejects_callback_counts() -> TestResult {
+fn execute_with_options_rejects_callback_count_mismatch() -> TestResult {
     let Some(rt) = runtime_or_skip()? else {
         return Ok(());
     };
@@ -332,9 +391,11 @@ fn execute_with_options_rejects_callback_counts() -> TestResult {
         0,
         &[],
         null_mut(),
+        &[],
+        &[],
     );
     if result.is_ok() {
-        return Err("expected execute_with_options to reject nonzero callback counts".to_string().into());
+        return Err("expected execute_with_options to reject callback count/registration mismatch".to_string().into());
     }
 
     Ok(())
@@ -370,6 +431,8 @@ fn execute_with_options_rejects_negative_non_donatable_indices() -> TestResult {
         0,
         &[-1],
         device.raw(),
+        &[],
+        &[],
     );
     if result.is_ok() {
         return Err(
@@ -446,5 +509,232 @@ fn execute_context_into_raw_manual_destroy_smoke() -> TestResult {
     if !err.is_null() {
         return Err("PJRT_ExecuteContext_Destroy failed for raw execute context".to_string().into());
     }
+    Ok(())
+}
+
+#[test]
+fn execute_context_send_callback_success_smoke() -> TestResult {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
+
+    let client = rt.create_client()?;
+    let executable = client.compile_on_topology_code(MODULE_SEND_CALLBACK, "mlir", &[], None)?;
+    let buffer = client
+        .buffer_from_host_slice_copy(&[41.0f32], PJRT_Buffer_Type_PJRT_Buffer_Type_F32, &[], None)?;
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
+
+    static SEND_CB_HIT: AtomicBool = AtomicBool::new(false);
+
+    fn send_cb(_inv: PJRTSendCallbackInvocation) -> Result<(), String> {
+        SEND_CB_HIT.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    SEND_CB_HIT.store(false, Ordering::SeqCst);
+
+    let callback = [PJRTSendCallbackRegistration {
+        channel_id: SEND_CHANNEL_ID,
+        callback: send_cb
+    }];
+
+    let recv_callbacks = [];
+
+    let (_outputs, done) = executable.execute_with_options(
+        &[&buffer],
+        Option::from(&execute_context),
+        0,
+        0,
+        0,
+        &[],
+        null_mut(),
+        &callback,
+        &recv_callbacks
+    )?;
+
+    done.ok()?;
+    assert!(SEND_CB_HIT.load(Ordering::SeqCst));
+    Ok(())
+}
+
+
+#[test]
+fn execute_context_send_callback_failure_smoke() -> TestResult {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
+
+    let client = rt.create_client()?;
+    let executable = client.compile_on_topology_code(MODULE_SEND_CALLBACK, "mlir", &[], None)?;
+    let buffer = client.buffer_from_host_slice_copy(
+        &[41.0f32],
+        PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
+        &[],
+        None,
+    )?;
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
+
+    fn send_cb_fail(_inv: PJRTSendCallbackInvocation) -> Result<(), String> {
+        Err("failed".to_string())
+    }
+
+    let send_callbacks = [PJRTSendCallbackRegistration {
+        channel_id: SEND_CHANNEL_ID,
+        callback: send_cb_fail,
+    }];
+    let recv_callbacks: [PJRTRecvCallbackRegistration; 0] = [];
+
+    let result = executable.execute_with_options(
+        &[&buffer],
+        Some(&execute_context),
+        0,
+        0,
+        0,
+        &[],
+        null_mut(),
+        &send_callbacks,
+        &recv_callbacks,
+    );
+
+    match result {
+        Err(e) => {
+            let msg = e.to_string();
+            assert!(msg.contains("failed") || msg.contains("send callback failed"));
+        }
+        Ok((_outputs, done)) => {
+            let ev = done.ok();
+            assert!(ev.is_err(), "expected event failure");
+            let msg = ev.err().unwrap_or_default();
+            assert!(msg.contains("failed") || msg.contains("send callback failed"));
+        }
+    }
+
+    Ok(())
+}
+
+
+#[test]
+fn execute_context_recv_callback_smoke() -> TestResult {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
+
+    let client = rt.create_client()?;
+
+    let executable = client.compile_on_topology_code(
+        MODULE_RECV_CALLBACK,
+        "mlir",
+        &[],
+        None
+    )?;
+
+    let buffer = client.buffer_from_host_slice_copy(
+        &[41.0f32],
+        PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
+        &[],
+        None,
+    )?;
+
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
+
+    fn recv_cb_failed(_inv: PJRTRecvCallbackInvocation) -> Result<(), String> {
+        Err("failed".to_string())
+    }
+
+    let recv_callbacks = [PJRTRecvCallbackRegistration {
+        channel_id: SEND_CHANNEL_ID,
+        callback: recv_cb_failed,
+    }];
+
+    let send_callbacks = [];
+
+    let result = executable.execute_with_options(
+            &[&buffer],
+            Some(&execute_context),
+            0,
+            0,
+            0,
+            &[],
+            null_mut(),
+            &send_callbacks,
+            &recv_callbacks,
+    );
+
+    match result {
+        Err(e) => {
+            let msg = e.to_string();
+            assert!(msg.contains("failed") || msg.contains("recv callback failed"));
+        }
+        Ok((_outputs, done)) => {
+            let ev = done.ok();
+            assert!(ev.is_err(), "expected event failure");
+            let msg = ev.err().unwrap_or_default();
+            assert!(msg.contains("failed") || msg.contains("recv callback failed"));
+        }
+    }
+
+    Ok(())
+
+}
+
+#[test]
+fn callback_lifetime_survival_smoke() -> TestResult {
+    let Some(rt) = runtime_or_skip()? else {
+        return Ok(());
+    };
+
+    let client = rt.create_client()?;
+    let executable = client.compile_on_topology_code(MODULE_SEND_AND_RECV, "mlir", &[], None)?;
+    let buffer = client.buffer_from_host_slice_copy(
+        &[41.0f32],
+        PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
+        &[],
+        None,
+    )?;
+
+    static ATOMIC_BOOL_SEND: AtomicBool = AtomicBool::new(false);
+    static ATOMIC_BOOL_RECV: AtomicBool = AtomicBool::new(false);
+
+    fn send_callback(_inv: PJRTSendCallbackInvocation) -> Result<(), String> {
+        ATOMIC_BOOL_SEND.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn recv_callback(_inv: PJRTRecvCallbackInvocation) -> Result<(), String> {
+        ATOMIC_BOOL_RECV.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
+    ATOMIC_BOOL_SEND.store(false, Ordering::SeqCst);
+    ATOMIC_BOOL_RECV.store(false, Ordering::SeqCst);
+
+    let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
+
+    let send_callbacks = [PJRTSendCallbackRegistration {
+        channel_id: SEND_CHANNEL_ID,
+        callback: send_callback,
+    }];
+
+    let recv_callbacks = [PJRTRecvCallbackRegistration {
+        channel_id: RECV_CHANNEL_ID,
+        callback: recv_callback,
+    }];
+
+    let (_outputs, done) = executable.execute_with_options(
+        &[&buffer],
+        Some(&execute_context),
+        0,
+        0,
+        0,
+        &[],
+        null_mut(),
+        &send_callbacks,
+        &recv_callbacks,
+    )?;
+
+    done.ok()?;
+    assert!(ATOMIC_BOOL_SEND.load(Ordering::SeqCst));
+    assert!(ATOMIC_BOOL_RECV.load(Ordering::SeqCst));
+
     Ok(())
 }

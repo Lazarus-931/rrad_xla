@@ -1,6 +1,7 @@
 use crate::pjrt_sys::*;
 use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use std::any::Any;
 use std::mem;
 use std::ptr;
 use std::ptr::null_mut;
@@ -8,11 +9,28 @@ use std::ptr::null_mut;
 pub struct PJRTEvent<'a> {
     rt: &'a PjrtRuntime,
     raw: *mut PJRT_Event,
+    _keepalive: Option<Box<dyn Any>>,
 }
 
 impl<'a> PJRTEvent<'a> {
     pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_Event) -> Self {
-        Self { rt, raw }
+        Self {
+            rt,
+            raw,
+            _keepalive: None,
+        }
+    }
+
+    pub(crate) fn new_with_keepalive(
+        rt: &'a PjrtRuntime,
+        raw: *mut PJRT_Event,
+        keepalive: Box<dyn Any>,
+    ) -> Self {
+        Self {
+            rt,
+            raw,
+            _keepalive: Some(keepalive),
+        }
     }
 
     pub fn raw(&self) -> *mut PJRT_Event {
@@ -53,6 +71,7 @@ impl<'a> PJRTEvent<'a> {
         Ok(PJRTEvent {
             rt,
             raw: args.event,
+            _keepalive: None,
         })
     }
 

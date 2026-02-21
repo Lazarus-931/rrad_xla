@@ -193,7 +193,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.num_dynamic_dims == 0 {
             return Ok(Vec::new());
@@ -233,7 +233,7 @@ impl<'a> PJRTBuffer<'a> {
                 Ok(PJRTDevice::new(self.rt, args.device))
             }
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -277,7 +277,7 @@ impl<'a> PJRTBuffer<'a> {
         if err.is_null() {
             Ok(args.on_device_size_in_bytes)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -301,7 +301,7 @@ impl<'a> PJRTBuffer<'a> {
         if err.is_null() {
             Ok(args.layout)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -323,7 +323,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.event.is_null() {
             return Err(self.error("PJRT_Buffer_ReadyEvent returned null event"));
@@ -356,7 +356,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.event.is_null() {
             return Err(self.error("PJRT_Buffer_ToHostBuffer returned null completion event"));
@@ -384,7 +384,7 @@ impl<'a> PJRTBuffer<'a> {
         if err.is_null() {
             Ok(args.buffer_pointer)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -408,7 +408,7 @@ impl<'a> PJRTBuffer<'a> {
         if err.is_null() {
             Ok((!args.device_memory_ptr.is_null()).then_some(args.device_memory_ptr))
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -452,7 +452,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.event.is_null() {
             return Err(self.error("PJRT_Buffer_CopyRawToHost returned null completion event"));
@@ -484,7 +484,7 @@ impl<'a> PJRTBuffer<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else if args.dst_buffer.is_null() {
             Err(self.error("PJRT_Buffer_CopyToDevice returned null dst_buffer"))
         } else {
@@ -515,7 +515,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
 
         let callback = args.dependency_ready_callback.ok_or_else(|| {
@@ -578,7 +578,7 @@ impl<'a> PJRTBuffer<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else if args.dst_buffer.is_null() {
             Err(self.error("PJRT_Buffer_CopyToMemory returned null dst_buffer"))
         } else {
@@ -627,7 +627,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.event.is_null() {
             return Err(self.error("PJRT_Buffer_CopyRawToHostFuture returned null event"));
@@ -655,7 +655,7 @@ impl<'a> PJRTBuffer<'a> {
         if err.is_null() {
             Ok(args.is_on_cpu)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -677,7 +677,7 @@ impl<'a> PJRTBuffer<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.memory.is_null() {
             return Err(self.error("PJRT_Buffer_Memory returned null memory"));
@@ -705,7 +705,7 @@ impl<'a> PJRTBuffer<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -728,7 +728,7 @@ impl<'a> PJRTBuffer<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 }
@@ -751,7 +751,7 @@ impl Drop for PJRTBuffer<'_> {
 
         let err = unsafe { destroy(&mut args) };
         if !err.is_null() {
-            let _ = self.error("Error is non-null");
+            let _ = PJRTError::new(self.rt, err);
         }
     }
 }

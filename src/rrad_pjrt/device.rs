@@ -54,7 +54,7 @@ impl Drop for PJRTAsyncTrackingEvent<'_> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            let _ = PJRTError::invalid_arg(self.rt, "Error is non-null");
+            let _ = PJRTError::new(self.rt, err);
         }
     }
 }
@@ -109,7 +109,7 @@ impl<'a> PJRTDevice<'a> {
         };
         let err = unsafe { get_desc(&mut get_desc_args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if get_desc_args.device_description.is_null() {
             return Err(self
@@ -141,7 +141,7 @@ impl<'a> PJRTDevice<'a> {
         if err.is_null() {
             Ok(args.is_addressable)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -181,7 +181,7 @@ impl<'a> PJRTDevice<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
 
         Ok(PJRTDeviceMemoryStats {
@@ -241,7 +241,7 @@ impl<'a> PJRTDevice<'a> {
         if err.is_null() {
             Ok(args.poisoned)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -275,7 +275,7 @@ impl<'a> PJRTDevice<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.event.is_null() {
             return Err(self
@@ -303,7 +303,7 @@ impl<'a> PJRTDevice<'a> {
         if err.is_null() {
             Ok(args.local_hardware_id)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -328,7 +328,7 @@ impl<'a> PJRTDevice<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.num_memories == 0 {
             return Ok(Vec::new());
@@ -363,7 +363,7 @@ impl<'a> PJRTDevice<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.memory.is_null() {
             return Err(self

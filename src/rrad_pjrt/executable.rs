@@ -739,7 +739,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(args.num_replicas)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -763,7 +763,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(args.num_partitions)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -786,7 +786,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -809,7 +809,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -833,7 +833,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(args.is_deleted)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -856,7 +856,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.num_output_types == 0 {
             return Ok(Vec::new());
@@ -891,7 +891,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.num_addressable_devices == 0 {
             return Ok(Vec::new());
@@ -963,7 +963,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
 
         if args.executable_fingerprint.is_null() {
@@ -998,7 +998,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.executable_fingerprint.is_null() {
             if args.executable_fingerprint_size == 0 {
@@ -1038,7 +1038,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if err.is_null() {
             Ok(args.size_in_bytes)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -1062,7 +1062,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.num_outputs == 0 {
             return Ok(Vec::new());
@@ -1118,7 +1118,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if !args.serialized_device_assignment.is_null()
             && args.serialized_device_assignment_deleter.is_none()
@@ -1174,7 +1174,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
 
         if args.executable_name.is_null() {
@@ -1216,7 +1216,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             let stats = vec![
                 args.generated_code_size_in_bytes,
@@ -1257,7 +1257,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else if args.num_properties == 0 {
             Ok(String::new())
         } else if args.properties.is_null() {
@@ -1303,7 +1303,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             Ok(())
         }
@@ -1329,7 +1329,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else if args.num_outputs == 0 {
             Err(self.error("PJRT_Executable_OutputDimensions returned no outputs"))
         } else if args.dims.is_null() {
@@ -1360,7 +1360,7 @@ impl Drop for PJRTLoadedExecutable<'_> {
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
             // Drop must not panic; best-effort cleanup.
-            let _ = self.error("Error is non-null");
+            let _ = PJRTError::new(self.rt, err);
         }
     }
 }

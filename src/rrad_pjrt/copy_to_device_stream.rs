@@ -61,7 +61,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             Ok(())
         }
@@ -88,7 +88,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             Ok(args.current_bytes)
         }
@@ -115,7 +115,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             Ok(args.total_bytes)
         }
@@ -142,7 +142,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             Ok(args.granule_size_in_bytes)
         }
@@ -171,7 +171,7 @@ impl Drop for PJRTCopyToDeviceStreamRef<'_> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            let _ = self.error("Error is non-null");
+            let _ = PJRTError::new(self.rt, err);
         }
 
         self.raw = ptr::null_mut();

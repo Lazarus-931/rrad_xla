@@ -66,7 +66,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -94,7 +94,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         if err.is_null() {
             Ok(args.buffer_count)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -122,7 +122,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         if err.is_null() {
             Ok(args.buffer_size)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -147,7 +147,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.device_out.is_null() {
             return Err(self
@@ -181,7 +181,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.buffer_out.is_null() {
             return Err(self
@@ -236,7 +236,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -285,7 +285,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
 
         Ok(if args.done_with_h2d_transfer.is_null() {
@@ -337,7 +337,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
 
         Ok(if args.done_with_h2d_transfer.is_null() {
@@ -366,7 +366,7 @@ impl Drop for PjrtHtoDeviceManager<'_> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            let _ = self.error("Error is non-null");
+            let _ = PJRTError::new(self.rt, err);
         }
 
         self.raw = ptr::null_mut();

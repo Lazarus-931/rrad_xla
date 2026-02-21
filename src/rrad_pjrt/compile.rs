@@ -144,7 +144,7 @@ impl<'a> PJRTCompiler<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else if args.num_addressable_devices == 0 {
             Ok(Vec::new())
         } else if args.addressable_devices.is_null() {

@@ -72,7 +72,7 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else if args.kind_size == 0 {
             Ok(String::new())
         } else if args.kind.is_null() {
@@ -100,7 +100,7 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             Ok(args.kind_id)
         }
@@ -123,7 +123,7 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else if args.debug_string_size == 0 {
             Ok(String::new())
         } else if args.debug_string.is_null() {
@@ -153,7 +153,7 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else if args.to_string_size == 0 {
             Ok(String::new())
         } else if args.to_string.is_null() {
@@ -186,7 +186,7 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.num_devices == 0 {
             return Ok(Vec::new());

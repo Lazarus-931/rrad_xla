@@ -113,7 +113,7 @@ impl<'a> PJRTClient<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.topology.is_null() {
             return Err(self.error("PJRT_Client_TopologyDescription returned null topology"));
@@ -218,7 +218,7 @@ impl<'a> PJRTClient<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -242,7 +242,7 @@ impl<'a> PJRTClient<'a> {
         if err.is_null() {
             Ok(args.process_index)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -265,7 +265,7 @@ impl<'a> PJRTClient<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.device.is_null() {
             return Err(self.error("PJRT_Client_LookupDevice returned null device"));
@@ -296,7 +296,7 @@ impl<'a> PJRTClient<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.addressable_device.is_null() {
             return Err(self.error("PJRT_Client_LookupAddressableDevice returned null device"));
@@ -324,7 +324,7 @@ impl<'a> PJRTClient<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.num_addressable_memories == 0 {
             return Ok(Vec::new());
@@ -383,7 +383,7 @@ impl<'a> PJRTClient<'a> {
         let err = unsafe { function(&mut args) };
 
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.transfer_manager.is_null() {
             return Err(
@@ -462,7 +462,7 @@ impl<'a> PJRTClient<'a> {
         let err = unsafe { funct(&mut args) };
 
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             Ok(())
         }
@@ -490,7 +490,7 @@ impl<'a> PJRTClient<'a> {
         let err = unsafe { func(&mut args) };
 
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             Ok(())
         }
@@ -524,7 +524,7 @@ impl<'a> PJRTClient<'a> {
         let err = unsafe { funct(&mut args) };
 
         if !err.is_null() {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             Ok(PJRTBuffer {
                 rt: self.rt,
@@ -594,7 +594,7 @@ impl<'a> PJRTClient<'a> {
         let err = unsafe { funct(&mut args) };
 
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.buffer.is_null() {
             return Err(self.error("PJRT_Client_CreateViewOfDeviceBuffer returned null buffer"));
@@ -668,7 +668,7 @@ impl<'a> PJRTClient<'a> {
 
         let err = unsafe { buf_from_host(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.buffer.is_null() {
             return Err(self.error("PJRT_Client_BufferFromHostBuffer succeeded but returned null buffer"));
@@ -717,7 +717,7 @@ impl<'a> PJRTClient<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.alias_buffer.is_null() {
             return Err(self.error("PJRT_Client_CreateAliasBuffer returned null alias_buffer"));
@@ -776,7 +776,7 @@ impl<'a> PJRTClient<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.buffer.is_null() {
             return Err(self.error("PJRT_Client_CreateErrorBuffer returned null buffer"));
@@ -819,7 +819,7 @@ impl<'a> PJRTClient<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -873,7 +873,7 @@ impl<'a> PJRTClient<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         out.truncate(args.default_assignment_size.min(out.len()));
         Ok(out)
@@ -932,7 +932,7 @@ impl<'a> PJRTClient<'a> {
         let err = unsafe { platform(&mut args) };
 
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.platform_name.is_null() {
             if args.platform_name_size == 0 {

@@ -63,7 +63,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         if err.is_null() {
             Ok(args.id)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -87,7 +87,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         if err.is_null() {
             Ok(args.process_index)
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -106,7 +106,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         bytes_to_string(self.rt, args.device_kind, args.device_kind_size, "device_kind")
     }
@@ -130,7 +130,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         bytes_to_string(self.rt, args.debug_string, args.debug_string_size, "debug_string")
     }
@@ -154,7 +154,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         bytes_to_string(self.rt, args.to_string, args.to_string_size, "to_string")
     }
@@ -178,7 +178,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         decode_named_values(self.rt, args.attributes, args.num_attributes)
             .map_err(|err| err.unwrap_or_else(|| self.error("NamedValue decode failed")))
@@ -280,7 +280,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         bytes_to_string(self.rt, args.platform_name, args.platform_name_size, "platform_name")
     }
@@ -304,7 +304,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         bytes_to_string(
             self.rt,
@@ -333,7 +333,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.num_descriptions == 0 {
             return Ok(Vec::new());
@@ -371,7 +371,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         decode_named_values(self.rt, args.attributes, args.num_attributes)
             .map_err(|err| err.unwrap_or_else(|| self.error("NamedValue decode failed")))
@@ -398,7 +398,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         };
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if !args.serialized_topology.is_null() && args.serialized_topology_deleter.is_none() {
             return Err(self
@@ -455,7 +455,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            return Err(PJRTError::invalid_arg(rt, "Error is non-null"));
+            return Err(PJRTError::new(rt, err));
         }
         if args.topology.is_null() {
             return Err(PJRTError::invalid_arg(
@@ -519,7 +519,7 @@ impl<'a> PJRTTopologyDescription<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.executable.is_null() {
             return Err(self.error("PJRT_Compile returned null executable"));
@@ -546,7 +546,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(self.error("Error is non-null"))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 
@@ -567,7 +567,7 @@ impl<'a> PJRTTopologyDescription<'a> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(self.error("Error is non-null"));
+            return Err(PJRTError::new(self.rt, err));
         }
 
         if !args.serialized_executable.is_null() && args.serialized_executable_deleter.is_none() {
@@ -608,7 +608,7 @@ impl<'a> PJRTTopologyDescription<'a> {
     ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
         let executable = self
             .compile(client, program, compile_options)
-            .map_err(|e| self.error("Failed to compile"))?;
+            .map_err(|e| self.error(format!("Failed to compile: {e}")))?;
         let serialized = self.serialize_executable(executable);
         let destroy_result = self.destroy_executable(executable);
 
@@ -720,7 +720,7 @@ impl Drop for PJRTTopologyDescription<'_> {
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
             // Drop must not panic; best-effort cleanup.
-            let _ = self.error("Error is non-null");
+            let _ = PJRTError::new(self.rt, err);
         }
     }
 }

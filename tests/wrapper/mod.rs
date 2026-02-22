@@ -9,3 +9,4 @@ pub mod unified;
 mod host_to_device_manager;
 mod topology_desc;
 mod copy_to_device_stream;
+mod compile;

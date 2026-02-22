@@ -1,5 +1,5 @@
 use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
-use super::tools::TestResult;
+use super::tools::{runtime_or_skip, TestResult};
 use std::path::{Path, PathBuf};
 
 fn resolve_plugin_path() -> Option<PathBuf> {
@@ -25,16 +25,7 @@ fn resolve_plugin_path() -> Option<PathBuf> {
     None
 }
 
-fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
-    let Some(plugin_path) = resolve_plugin_path() else {
-        eprintln!("Skipping wrapper::device tests: PJRT plugin not found");
-        return Ok(None);
-    };
 
-    let rt = PjrtRuntime::load(&plugin_path)?;
-    rt.initialize_plugin().map_err(|e| e.to_string())?;
-    Ok(Some(rt))
-}
 
 #[test]
 fn general_hardware_smoke() -> TestResult {

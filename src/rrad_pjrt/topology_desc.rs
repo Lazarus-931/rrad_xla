@@ -1,10 +1,11 @@
+use std::fmt::{Debug, Formatter};
 use std::ptr;
 use std::slice::from_raw_parts;
 
 use crate::pjrt_sys::*;
 use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::executable::PJRTLoadedExecutable;
-use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::loader::PjrtRuntime;
 
 #[derive(Debug, Clone)]
 pub enum PJRTNamedValue {
@@ -207,10 +208,9 @@ impl<'a> PJRTTopologyDescription<'a> {
         rt: &'a PjrtRuntime,
         topology_name: Option<&str>,
         create_options: &[PJRT_NamedValue],
-    ) -> Result<Self, String> {
+    ) -> Result<Self, PJRTError<'a>> {
         let function = rt.api().PJRT_TopologyDescription_Create.ok_or_else(|| {
             PJRTError::invalid_arg(rt, "PJRT_TopologyDescription_Create symbol not found")
-                .to_string()
         })?;
 
         let (topology_name_ptr, topology_name_size) = match topology_name {
@@ -236,21 +236,16 @@ impl<'a> PJRTTopologyDescription<'a> {
         let err = unsafe { function(&mut args) };
 
         if !err.is_null() {
-            return Err(error_to_string(rt.api(), err));
+            return Err(PJRTError::new(rt, err));
         }
         if args.topology.is_null() {
             return Err(PJRTError::invalid_arg(
                 rt,
                 "PJRT_TopologyDescription_Create returned null topology",
-            )
-            .to_string());
+            ));
         }
 
         Ok(Self::new(rt, args.topology))
-    }
-
-    pub fn create_default(rt: &'a PjrtRuntime) -> Result<Self, String> {
-        Self::create(rt, None, &[])
     }
 
     fn raw_checked(&self) -> Result<*mut PJRT_TopologyDescription, PJRTError<'a>> {
@@ -524,6 +519,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         if args.executable.is_null() {
             return Err(self.error("PJRT_Compile returned null executable"));
         }
+
         Ok(args.executable)
     }
 
@@ -606,9 +602,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         compile_options: &[u8],
         overridden_compile_options: Option<&[u8]>,
     ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
-        let executable = self
-            .compile(client, program, compile_options)
-            .map_err(|e| self.error(format!("Failed to compile: {e}")))?;
+        let executable = self.compile(client, program, compile_options)?;
         let serialized = self.serialize_executable(executable);
         let destroy_result = self.destroy_executable(executable);
 
@@ -722,6 +716,12 @@ impl Drop for PJRTTopologyDescription<'_> {
             // Drop must not panic; best-effort cleanup.
             let _ = PJRTError::new(self.rt, err);
         }
+    }
+}
+
+impl Debug for PJRTTopologyDescription<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
     }
 }
 

@@ -40,7 +40,7 @@ fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
     };
 
     let rt = PjrtRuntime::load(&plugin_path)?;
-    rt.initialize_plugin()?;
+    rt.initialize_plugin().map_err(|e| e.to_string())?;
     Ok(Some(rt))
 }
 

@@ -6,7 +6,7 @@ use crate::rrad_pjrt::buffer::PJRTBuffer;
 use crate::rrad_pjrt::device::PJRTDevice;
 use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::event::PJRTEvent;
-use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::loader::PjrtRuntime;
 
 pub struct PjrtHtoDeviceManager<'a> {
     pub rt: &'a PjrtRuntime,
@@ -158,7 +158,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         Ok(PJRTDevice::new(self.rt, args.device_out))
     }
 
-    pub fn retrieve_buffer(&self, buffer_index: i32) -> Result<*mut PJRT_Buffer, PJRTError<'a>> {
+    pub fn retrieve_buffer(&self, buffer_index: i32) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
         let raw = self.raw_checked().map_err(|e| e)?;
 
         let f = self
@@ -189,15 +189,14 @@ impl<'a> PjrtHtoDeviceManager<'a> {
                 );
         }
 
-        Ok(args.buffer_out)
+        let buffer = PJRTBuffer {
+            rt: self.rt,
+            raw: args.buffer_out,
+        };
+
+        Ok(buffer)
     }
 
-    pub fn retrieve_buffer_ref(&self, buffer_index: i32) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
-        Ok(PJRTBuffer::new(
-            self.rt,
-            self.retrieve_buffer(buffer_index)?,
-        ))
-    }
 
     pub fn set_buffer_error(
         &self,

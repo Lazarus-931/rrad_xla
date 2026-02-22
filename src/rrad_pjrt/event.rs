@@ -1,6 +1,6 @@
 use crate::pjrt_sys::*;
 use crate::rrad_pjrt::error::PJRTError;
-use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::loader::PjrtRuntime;
 use std::any::Any;
 use std::mem;
 use std::ptr;
@@ -47,11 +47,11 @@ impl<'a> PJRTEvent<'a> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    pub fn create(rt: &'a PjrtRuntime) -> Result<PJRTEvent<'a>, String> {
+    pub fn create(rt: &'a PjrtRuntime) -> Result<PJRTEvent<'a>, PJRTError<'a>> {
         let f = rt
             .api()
             .PJRT_Event_Create
-            .ok_or("PJRT_Event_Create symbol not found")?;
+            .ok_or_else(|| PJRTError::invalid_arg(rt, "PJRT_Event_Create symbol not found"))?;
 
         let mut args = PJRT_Event_Create_Args {
             struct_size: PJRT_Event_Create_Args_STRUCT_SIZE as usize,
@@ -62,10 +62,13 @@ impl<'a> PJRTEvent<'a> {
         let err = unsafe { f(&mut args) };
 
         if !err.is_null() {
-            return Err(error_to_string(rt.api(), err));
+            return Err(PJRTError::new(rt, err));
         }
         if args.event.is_null() {
-            return Err("PJRT_Event_Create returned null event".to_string());
+            return Err(PJRTError::invalid_arg(
+                rt,
+                "PJRT_Event_Create returned null event",
+            ));
         }
 
         Ok(PJRTEvent {
@@ -199,15 +202,15 @@ impl<'a> PJRTEvent<'a> {
         }
     }
 
-    pub fn ok(&self) -> Result<(), String> {
-        self.await_ready().map_err(|e| e.to_string())?;
+    pub fn ok(&self) -> Result<(), PJRTError<'a>> {
+        self.await_ready()?;
 
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+        let raw = self.raw_checked()?;
         let f = self
             .rt
             .api()
             .PJRT_Event_Error
-            .ok_or("PJRT_Event_Error symbol not found")?;
+            .ok_or_else(|| self.error("PJRT_Event_Error symbol not found"))?;
 
         let mut args = PJRT_Event_Error_Args {
             struct_size: PJRT_Event_Error_Args_STRUCT_SIZE as usize,
@@ -219,7 +222,7 @@ impl<'a> PJRTEvent<'a> {
         if err.is_null() {
             Ok(())
         } else {
-            Err(error_to_string(self.rt.api(), err))
+            Err(PJRTError::new(self.rt, err))
         }
     }
 }
@@ -242,7 +245,7 @@ impl Drop for PJRTEvent<'_> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            let _ = error_to_string(self.rt.api(), err);
+            let _ = PJRTError::new(self.rt, err);
         }
     }
 }

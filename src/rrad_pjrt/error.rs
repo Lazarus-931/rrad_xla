@@ -66,15 +66,15 @@ impl<'a> PJRTError<'a> {
         }
     }
 
-    pub fn message(&self) -> Result<String, String> {
+    pub fn message(&self) -> Result<String, PJRTError<'a>> {
         if let Some(msg) = &self.local_message {
             return Ok(msg.clone());
         }
 
-        let raw = self.raw_checked().map_err(|e| e.to_string())?;
+        let raw = self.raw_checked().map_err(|e| e)?;
 
         let func = self.rt.api().PJRT_Error_Message.ok_or_else(|| {
-            PJRTError::invalid_arg(self.rt, "PJRT_Error_Message symbol not found").to_string()
+            PJRTError::invalid_arg(self.rt, "PJRT_Error_Message symbol not found")
         })?;
 
         let mut args = PJRT_Error_Message_Args {
@@ -90,7 +90,7 @@ impl<'a> PJRTError<'a> {
             if args.message_size == 0 {
                 return Ok(String::new());
             }
-            return Err("PJRT_Error_Message returned null message with nonzero size".to_string());
+            return Err(PJRTError::invalid_arg(self.rt, "PJRT_Error_Message returned null message with nonzero size"));
         }
 
         let bytes =

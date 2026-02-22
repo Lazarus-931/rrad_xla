@@ -75,7 +75,7 @@ impl<'a> PJRTCompiler<'a> {
         let err = unsafe { client_compile(&mut args) };
 
         if !err.is_null() {
-            return Err(self.error("PJRT_Client_Compile is null"));
+            return Err(PJRTError::new(self.rt, err));
         }
         if args.executable.is_null() {
             return Err(self.error("PJRT_Client_Compile returned null executable"));

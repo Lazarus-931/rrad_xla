@@ -2,7 +2,7 @@ use std::ptr;
 
 use crate::pjrt_sys::*;
 use crate::rrad_pjrt::error::PJRTError;
-use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::loader::PjrtRuntime;
 
 pub struct PJRTCopyToDeviceStreamRef<'a> {
     rt: &'a PjrtRuntime,
@@ -148,9 +148,6 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
         }
     }
 
-    pub fn granul_size(&self) -> Result<i64, PJRTError<'a>> {
-        self.granule_size()
-    }
 }
 
 impl Drop for PJRTCopyToDeviceStreamRef<'_> {

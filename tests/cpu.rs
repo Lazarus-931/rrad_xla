@@ -42,7 +42,7 @@ fn cpu_end_to_end_compile_execute_download() -> Result<(), String> {
     };
 
     let rt = PjrtRuntime::load(&plugin_path)?;
-    rt.initialize_plugin()?;
+    rt.initialize_plugin().map_err(|e| e.to_string())?;
     let client = rt.create_client().map_err(|e| e.to_string())?;
 
     let raw_devices = client.devices().map_err(|e| e.to_string())?;
@@ -66,7 +66,7 @@ fn cpu_end_to_end_compile_execute_download() -> Result<(), String> {
     let (outputs, done) = executable
         .execute(&[&input_buffer])
         .map_err(|e| e.to_string())?;
-    done.ok()?;
+    done.ok().map_err(|e| e.to_string())?;
     if outputs.len() != 1 {
         return Err(format!("expected exactly 1 output, got {}", outputs.len()));
     }

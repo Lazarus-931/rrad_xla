@@ -23,7 +23,7 @@ fn cpu_runtime_smoke() -> Result<(), String> {
     }
 
     let rt = PjrtRuntime::load(Path::new(&plugin_path))?;
-    rt.initialize_plugin()?;
+    rt.initialize_plugin().map_err(|e| e.to_string())?;
 
     let client = rt.create_client().map_err(|e| e.to_string())?;
     let platform_name = client.platform_name().map_err(|e| e.to_string())?;

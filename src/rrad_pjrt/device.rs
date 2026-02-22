@@ -2,7 +2,6 @@ use std::ptr;
 
 use crate::pjrt_sys::*;
 use crate::rrad_pjrt::error::PJRTError;
-use crate::rrad_pjrt::loader::error_to_string;
 use crate::rrad_pjrt::loader::PjrtRuntime;
 use crate::rrad_pjrt::memory::PJRTMemory;
 use crate::rrad_pjrt::topology_desc::{PJRTDeviceDescriptionRef, PJRTNamedAttribute};

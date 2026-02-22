@@ -414,7 +414,7 @@ impl<'a> PJRTBuffer<'a> {
 
     pub fn to_host_buffer_blocking(&self, dst: &mut [u8]) -> Result<(), PJRTError<'a>> {
         let event = self.to_host_buffer_async(dst)?;
-        event.ok().map_err(|e| self.error(e))
+        event.ok()
     }
 
     pub fn copy_raw_to_host_async(
@@ -529,7 +529,7 @@ impl<'a> PJRTBuffer<'a> {
             );
         }
 
-        let dependency_status = dependency.ok().map_err(|e| self.error(e));
+        let dependency_status = dependency.ok();
         let callback_message = match &dependency_status {
             Ok(()) => Vec::<u8>::new(),
             Err(message) => message.to_string().into_bytes(),
@@ -588,7 +588,7 @@ impl<'a> PJRTBuffer<'a> {
 
     pub fn copy_raw_to_host_blocking(&self, dst: &mut [u8], offset: i64) -> Result<(), PJRTError<'a>> {
         let event = self.copy_raw_to_host_async(dst, offset)?;
-        event.ok().map_err(|e| self.error(e))
+        event.ok()
     }
 
     pub fn copy_raw_to_host_future(

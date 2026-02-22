@@ -47,7 +47,7 @@ impl<'a> PJRTMemory<'a> {
 
         let err = unsafe { func(&mut args) };
         if !err.is_null() {
-            Err(self.error("Erroris non-null"))
+            Err(PJRTError::new(self.rt, err))
         } else {
             Ok(args.id as usize)
         }

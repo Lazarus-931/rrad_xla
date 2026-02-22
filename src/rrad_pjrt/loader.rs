@@ -54,11 +54,11 @@ impl PjrtRuntime {
         unsafe { &*self.api }
     }
 
-    pub fn initialize_plugin(&self) -> Result<(), String> {
+    pub fn initialize_plugin(&self) -> Result<(), PJRTError<'_>> {
         let init = self
             .api()
             .PJRT_Plugin_Initialize
-            .ok_or("PJRT_Plugin_Initialize symbol not found")?;
+            .ok_or_else(|| PJRTError::invalid_arg(self, "PJRT_Plugin_Initialize symbol not found"))?;
 
         let mut args = PJRT_Plugin_Initialize_Args {
             struct_size: PJRT_Plugin_Initialize_Args_STRUCT_SIZE as usize,
@@ -68,17 +68,17 @@ impl PjrtRuntime {
         let err = unsafe { init(&mut args) };
 
         if err.is_null() {
-            return Ok(());
+            Ok(())
+        } else {
+            Err(PJRTError::new(self, err))
         }
-
-        Err(error_to_string(self.api(), err))
     }
 
-    pub fn plugin_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, String> {
+    pub fn plugin_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'_>> {
         let f = self
             .api()
             .PJRT_Plugin_Attributes
-            .ok_or("PJRT_Plugin_Attributes symbol not found")?;
+            .ok_or_else(|| PJRTError::invalid_arg(self, "PJRT_Plugin_Attributes symbol not found"))?;
 
         let mut args = PJRT_Plugin_Attributes_Args {
             struct_size: PJRT_Plugin_Attributes_Args_STRUCT_SIZE as usize,
@@ -89,17 +89,17 @@ impl PjrtRuntime {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            return Err(error_to_string(self.api(), err));
+            return Err(PJRTError::new(self, err));
         }
 
-        decode_named_values(args.attributes, args.num_attributes)
+        decode_named_values(self, args.attributes, args.num_attributes)
     }
 
-    pub fn create_client<'a>(&'a self) -> Result<PJRTClient<'a>, String> {
+    pub fn create_client<'a>(&'a self) -> Result<PJRTClient<'a>, PJRTError<'a>> {
         let f = self
             .api()
             .PJRT_Client_Create
-            .ok_or("PJRT_Client_Create symbol not found")?;
+            .ok_or_else(|| PJRTError::invalid_arg(self, "PJRT_Client_Create symbol not found"))?;
 
         let mut args = PJRT_Client_Create_Args {
             struct_size: PJRT_Client_Create_Args_STRUCT_SIZE as usize,
@@ -119,7 +119,10 @@ impl PjrtRuntime {
 
         if err.is_null() {
             if args.client.is_null() {
-                return Err("PJRT_Client_Create succeeded but returned null client".into());
+                return Err(PJRTError::invalid_arg(
+                    self,
+                    "PJRT_Client_Create succeeded but returned null client",
+                ));
             }
             let client = PJRTClient {
                 rt: self,
@@ -127,15 +130,15 @@ impl PjrtRuntime {
             };
             Ok(client)
         } else {
-            Err(error_to_string(self.api(), err))
+            Err(PJRTError::new(self, err))
         }
     }
 
-    pub fn destroy_client(&self, client: *mut PJRT_Client) -> Result<(), String> {
+    pub fn destroy_client(&self, client: *mut PJRT_Client) -> Result<(), PJRTError<'_>> {
         let f = self
             .api()
             .PJRT_Client_Destroy
-            .ok_or("PJRT_Client_Destroy symbol not found")?;
+            .ok_or_else(|| PJRTError::invalid_arg(self, "PJRT_Client_Destroy symbol not found"))?;
 
         let mut args = PJRT_Client_Destroy_Args {
             struct_size: PJRT_Client_Destroy_Args_STRUCT_SIZE as usize,
@@ -148,13 +151,16 @@ impl PjrtRuntime {
         if err.is_null() {
             Ok(())
         } else {
-            Err(error_to_string(self.api(), err))
+            Err(PJRTError::new(self, err))
         }
     }
 
     #[allow(dead_code)]
-    pub fn create_device(&self) -> Result<*mut PJRT_Device, String> {
-        Err("PJRT_Device objects are obtained from PJRT_Client_Devices; there is no PJRT_Device_Create in the C API".to_string())
+    pub fn create_device(&self) -> Result<*mut PJRT_Device, PJRTError<'_>> {
+        Err(PJRTError::invalid_arg(
+            self,
+            "PJRT_Device objects are obtained from PJRT_Client_Devices; there is no PJRT_Device_Create in the C API",
+        ))
     }
 
     pub fn client_devices<'a>(
@@ -200,10 +206,11 @@ impl PjrtRuntime {
     }
 }
 
-fn decode_named_values(
+fn decode_named_values<'a>(
+    rt: &'a PjrtRuntime,
     attrs: *const PJRT_NamedValue,
     num_attrs: usize,
-) -> Result<Vec<PJRTNamedAttribute>, String> {
+) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
     const NV_STRING: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kString;
     const NV_INT64: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kInt64;
     const NV_INT64_LIST: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kInt64List;
@@ -214,14 +221,17 @@ fn decode_named_values(
         return Ok(Vec::new());
     }
     if attrs.is_null() {
-        return Err("NamedValue pointer is null with nonzero count".to_string());
+        return Err(PJRTError::invalid_arg(
+            rt,
+            "NamedValue pointer is null with nonzero count",
+        ));
     }
 
     let values = unsafe { from_raw_parts(attrs, num_attrs) };
     let mut out = Vec::with_capacity(values.len());
     for value in values {
         if value.name.is_null() && value.name_size != 0 {
-            return Err("NamedValue name pointer is null".to_string());
+            return Err(PJRTError::invalid_arg(rt, "NamedValue name pointer is null"));
         }
 
         let name_bytes = if value.name_size == 0 {
@@ -235,7 +245,10 @@ fn decode_named_values(
             NV_STRING => {
                 let ptr = unsafe { value.__bindgen_anon_1.string_value };
                 if ptr.is_null() && value.value_size != 0 {
-                    return Err(format!("NamedValue '{name}' has null string pointer"));
+                    return Err(PJRTError::invalid_arg(
+                        rt,
+                        format!("NamedValue '{name}' has null string pointer"),
+                    ));
                 }
                 let bytes = if value.value_size == 0 {
                     &[][..]
@@ -248,7 +261,10 @@ fn decode_named_values(
             NV_INT64_LIST => {
                 let ptr = unsafe { value.__bindgen_anon_1.int64_array_value };
                 if ptr.is_null() && value.value_size != 0 {
-                    return Err(format!("NamedValue '{name}' has null int64 list pointer"));
+                    return Err(PJRTError::invalid_arg(
+                        rt,
+                        format!("NamedValue '{name}' has null int64 list pointer"),
+                    ));
                 }
                 let ints = if value.value_size == 0 {
                     Vec::new()
@@ -259,7 +275,12 @@ fn decode_named_values(
             }
             NV_FLOAT => PJRTNamedValue::Float(unsafe { value.__bindgen_anon_1.float_value }),
             NV_BOOL => PJRTNamedValue::Bool(unsafe { value.__bindgen_anon_1.bool_value }),
-            other => return Err(format!("NamedValue '{name}' has unknown type tag {other}")),
+            other => {
+                return Err(PJRTError::invalid_arg(
+                    rt,
+                    format!("NamedValue '{name}' has unknown type tag {other}"),
+                ))
+            }
         };
 
         out.push(PJRTNamedAttribute {

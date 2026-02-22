@@ -7,3 +7,5 @@ pub mod memory;
 mod tools;
 pub mod unified;
 mod host_to_device_manager;
+mod topology_desc;
+mod copy_to_device_stream;

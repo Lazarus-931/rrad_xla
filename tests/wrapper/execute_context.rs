@@ -111,7 +111,7 @@ fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
     };
 
     let rt = PjrtRuntime::load(&plugin_path)?;
-    rt.initialize_plugin()?;
+    rt.initialize_plugin().map_err(|e| e.to_string())?;
     Ok(Some(rt))
 }
 
@@ -604,7 +604,7 @@ fn execute_context_send_callback_failure_smoke() -> TestResult {
         Ok((_outputs, done)) => {
             let ev = done.ok();
             assert!(ev.is_err(), "expected event failure");
-            let msg = ev.err().unwrap_or_default();
+            let msg = ev.err().map(|e| e.to_string()).unwrap_or_default();
             assert!(msg.contains("failed") || msg.contains("send callback failed"));
         }
     }
@@ -668,7 +668,7 @@ fn execute_context_recv_callback_smoke() -> TestResult {
         Ok((_outputs, done)) => {
             let ev = done.ok();
             assert!(ev.is_err(), "expected event failure");
-            let msg = ev.err().unwrap_or_default();
+            let msg = ev.err().map(|e| e.to_string()).unwrap_or_default();
             assert!(msg.contains("failed") || msg.contains("recv callback failed"));
         }
     }

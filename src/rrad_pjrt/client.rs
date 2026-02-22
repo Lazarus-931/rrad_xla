@@ -6,7 +6,7 @@ use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::event::PJRTEvent;
 use crate::rrad_pjrt::executable::PJRTLoadedExecutable;
 use crate::rrad_pjrt::host_to_device_manager::PjrtHtoDeviceManager;
-use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::loader::PjrtRuntime;
 use crate::rrad_pjrt::memory::PJRTMemory;
 use crate::rrad_pjrt::topology_desc::{PJRTNamedAttribute, PJRTTopologyDescription};
 use crate::rrad_pjrt::utils::{BufferFromHostOptions, Shape};
@@ -21,12 +21,6 @@ pub struct PJRTClient<'a> {
 }
 
 impl<'a> PJRTClient<'a> {
-    pub(crate) fn new(rt: &'a PjrtRuntime, raw_client: *mut PJRT_Client) -> Self {
-        Self {
-            rt,
-            raw: raw_client,
-        }
-    }
 
     pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
         PJRTError::invalid_arg(self.rt, msg)
@@ -433,7 +427,7 @@ impl<'a> PJRTClient<'a> {
 
         if let Some(ev) = done {
             ev.await_ready()?;
-            ev.ok();
+            ev.ok()?;
         }
 
         Ok(buffer)
@@ -909,7 +903,7 @@ impl<'a> PJRTClient<'a> {
         let raw = self.raw;
         let rt = self.rt;
         std::mem::forget(self);
-        rt.destroy_client(raw).map_err(|e| PJRTError::invalid_arg(rt, e))
+        rt.destroy_client(raw)
     }
 
     pub fn platform_name(&self) -> Result<String, PJRTError<'a>> {

@@ -1,17 +1,15 @@
-use std::path::{Path, PathBuf};
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicBool, Ordering};
 use rrad_pjrt::pjrt_sys::{
     PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_ExecuteContext_Destroy_Args,
     PJRT_ExecuteContext_Destroy_Args_STRUCT_SIZE,
 };
-use rrad_pjrt::rrad_pjrt::executable::{PJRTRecvCallbackInvocation,
+use rrad_pjrt::rrad_pjrt::executable::{PJRTCallbackError, PJRTRecvCallbackInvocation,
                                        PJRTRecvCallbackRegistration,
                                        PJRTSendCallbackInvocation,
                                        PJRTSendCallbackRegistration};
 use rrad_pjrt::rrad_pjrt::execute_context::PJRTExecuteContext;
-use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
-use super::tools::TestResult;
+use super::tools::{runtime_or_skip, TestResult};
 
 const SEND_CHANNEL_ID: i64 = 1;
 const RECV_CHANNEL_ID: i64 = 2;
@@ -80,40 +78,6 @@ const MODULE_SEND_AND_RECV: &str = r#"module {
     }
   }"#;
 
-
-fn resolve_plugin_path() -> Option<PathBuf> {
-    if let Ok(path) = std::env::var("PJRT_PLUGIN") {
-        let p = PathBuf::from(path);
-        if p.is_file() {
-            return Some(p);
-        }
-    }
-
-    let candidates = [
-        "xla/bazel-bin/xla/pjrt/c/pjrt_c_api_cpu_plugin.so",
-        "xla/bazel-bin/xla/pjrt/c/pjrt_c_api_cpu_plugin.dylib",
-        "xla/bazel-bin/xla/pjrt/c/pjrt_c_api_cpu_plugin",
-    ];
-    for candidate in candidates {
-        let p = Path::new(candidate).to_path_buf();
-        if p.is_file() {
-            return Some(p);
-        }
-    }
-
-    None
-}
-
-fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
-    let Some(plugin_path) = resolve_plugin_path() else {
-        eprintln!("Skipping wrapper::execute_context tests: PJRT plugin not found");
-        return Ok(None);
-    };
-
-    let rt = PjrtRuntime::load(&plugin_path)?;
-    rt.initialize_plugin().map_err(|e| e.to_string())?;
-    Ok(Some(rt))
-}
 
 #[test]
 fn compile_and_execute_smoke() -> TestResult {
@@ -526,7 +490,7 @@ fn execute_context_send_callback_success_smoke() -> TestResult {
 
     static SEND_CB_HIT: AtomicBool = AtomicBool::new(false);
 
-    fn send_cb(_inv: PJRTSendCallbackInvocation) -> Result<(), String> {
+    fn send_cb(_inv: PJRTSendCallbackInvocation) -> Result<(), PJRTCallbackError> {
         SEND_CB_HIT.store(true, Ordering::SeqCst);
         Ok(())
     }
@@ -574,8 +538,8 @@ fn execute_context_send_callback_failure_smoke() -> TestResult {
     )?;
     let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
 
-    fn send_cb_fail(_inv: PJRTSendCallbackInvocation) -> Result<(), String> {
-        Err("failed".to_string())
+    fn send_cb_fail(_inv: PJRTSendCallbackInvocation) -> Result<(), PJRTCallbackError> {
+        Err(PJRTCallbackError::new("failed"))
     }
 
     let send_callbacks = [PJRTSendCallbackRegistration {
@@ -637,8 +601,8 @@ fn execute_context_recv_callback_smoke() -> TestResult {
 
     let execute_context = PJRTExecuteContext::create(&rt).map_err(|e| e.to_string())?;
 
-    fn recv_cb_failed(_inv: PJRTRecvCallbackInvocation) -> Result<(), String> {
-        Err("failed".to_string())
+    fn recv_cb_failed(_inv: PJRTRecvCallbackInvocation) -> Result<(), PJRTCallbackError> {
+        Err(PJRTCallbackError::new("failed"))
     }
 
     let recv_callbacks = [PJRTRecvCallbackRegistration {
@@ -695,12 +659,12 @@ fn callback_lifetime_survival_smoke() -> TestResult {
     static ATOMIC_BOOL_SEND: AtomicBool = AtomicBool::new(false);
     static ATOMIC_BOOL_RECV: AtomicBool = AtomicBool::new(false);
 
-    fn send_callback(_inv: PJRTSendCallbackInvocation) -> Result<(), String> {
+    fn send_callback(_inv: PJRTSendCallbackInvocation) -> Result<(), PJRTCallbackError> {
         ATOMIC_BOOL_SEND.store(true, Ordering::SeqCst);
         Ok(())
     }
 
-    fn recv_callback(_inv: PJRTRecvCallbackInvocation) -> Result<(), String> {
+    fn recv_callback(_inv: PJRTRecvCallbackInvocation) -> Result<(), PJRTCallbackError> {
         ATOMIC_BOOL_RECV.store(true, Ordering::SeqCst);
         Ok(())
     }

@@ -9,19 +9,16 @@ use crate::rrad_pjrt::host_to_device_manager::PjrtHtoDeviceManager;
 use crate::rrad_pjrt::loader::PjrtRuntime;
 use crate::rrad_pjrt::memory::PJRTMemory;
 use crate::rrad_pjrt::topology_desc::{PJRTNamedAttribute, PJRTTopologyDescription};
-use crate::rrad_pjrt::utils::{BufferFromHostOptions, Shape};
+use crate::rrad_pjrt::utils::{BufferFromHostOptions, PjrtShapeSpec, Shape};
 use std::ffi::c_void;
 use std::ptr;
 use std::ptr::null_mut;
-//raii wrapper for PJRT_Client
-
 pub struct PJRTClient<'a> {
     pub rt: &'a PjrtRuntime,
     pub raw: *mut PJRT_Client,
 }
 
 impl<'a> PJRTClient<'a> {
-
     pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
         PJRTError::invalid_arg(self.rt, msg)
     }
@@ -145,7 +142,9 @@ impl<'a> PJRTClient<'a> {
             if args.platform_version_size == 0 {
                 return Ok(String::new());
             }
-            return Err(self.error("PJRT_Client_PlatformVersion returned null platform_version with nonzero size"));
+            return Err(self.error(
+                "PJRT_Client_PlatformVersion returned null platform_version with nonzero size",
+            ));
         }
 
         let bytes = unsafe {
@@ -182,8 +181,8 @@ impl<'a> PJRTClient<'a> {
 
         let raw_buffer = buffer.unwrap_or(null_mut());
         if status_code == PJRT_Error_Code_PJRT_Error_Code_OK && raw_buffer.is_null() {
-            return Err(self.error(
-                "buffer must be non-null when status_code is PJRT_Error_Code_OK"),
+            return Err(
+                self.error("buffer must be non-null when status_code is PJRT_Error_Code_OK")
             );
         }
 
@@ -324,9 +323,9 @@ impl<'a> PJRTClient<'a> {
             return Ok(Vec::new());
         }
         if args.addressable_memories.is_null() {
-            return Err(
-                self.error("PJRT_Client_AddressableMemories returned null memories with nonzero count"
-                ));
+            return Err(self.error(
+                "PJRT_Client_AddressableMemories returned null memories with nonzero count",
+            ));
         }
 
         let memories = unsafe {
@@ -344,7 +343,7 @@ impl<'a> PJRTClient<'a> {
         &self,
         shape_specs: &mut [PJRT_ShapeSpec],
         device_layouts: &mut [*mut PJRT_Buffer_MemoryLayout],
-        memory: Option<*mut PJRT_Memory>,
+        memory: Option<PJRTMemory<'a>>,
     ) -> Result<PjrtHtoDeviceManager<'a>, PJRTError<'a>> {
         let client = self.raw_checked()?;
 
@@ -370,7 +369,7 @@ impl<'a> PJRTClient<'a> {
                 device_layouts.as_mut_ptr()
             },
             num_device_layouts: device_layouts.len(),
-            memory: memory.unwrap_or(null_mut()),
+            memory: memory.as_ref().map_or(null_mut(), |m| m.raw),
             transfer_manager: null_mut(),
         };
 
@@ -380,11 +379,24 @@ impl<'a> PJRTClient<'a> {
             return Err(PJRTError::new(self.rt, err));
         }
         if args.transfer_manager.is_null() {
-            return Err(
-                self.error("PJRT_Client_CreateBuffersForAsyncHostToDevice returned null transfer_manager"));
+            return Err(self.error(
+                "PJRT_Client_CreateBuffersForAsyncHostToDevice returned null transfer_manager",
+            ));
         }
 
         Ok(PjrtHtoDeviceManager::new(self.rt, args.transfer_manager))
+    }
+
+    pub fn create_buffers_for_async_host_to_device_specs(
+        &self,
+        shape_specs: &[PjrtShapeSpec],
+        device_layouts: &mut [*mut PJRT_Buffer_MemoryLayout],
+        memory: Option<PJRTMemory<'a>>,
+    ) -> Result<PjrtHtoDeviceManager<'a>, PJRTError<'a>> {
+        let mut raw_specs: Vec<PJRT_ShapeSpec> =
+            shape_specs.iter().map(PjrtShapeSpec::to_raw).collect();
+
+        self.create_buffers_for_async_host_to_device(&mut raw_specs, device_layouts, memory)
     }
 
     pub fn buffer_from_host_slice<T: Copy>(
@@ -413,8 +425,10 @@ impl<'a> PJRTClient<'a> {
         };
 
         let device = opts.device.as_ref().map(|d| d.raw());
-        let _ = opts.layout;
-        let _ = opts.memory;
+        let memory = opts.memory.as_ref().map(|m| m.raw);
+        let layout = opts
+            .layout
+            .map(|l| l as *const PJRT_Buffer_MemoryLayout as *mut PJRT_Buffer_MemoryLayout);
 
         let (buffer, done) = self.buffer_from_host_buffer(
             host.as_ptr().cast::<c_void>(),
@@ -423,6 +437,8 @@ impl<'a> PJRTClient<'a> {
             None,
             semantics,
             device,
+            memory,
+            layout,
         )?;
 
         if let Some(ev) = done {
@@ -519,6 +535,8 @@ impl<'a> PJRTClient<'a> {
 
         if !err.is_null() {
             Err(PJRTError::new(self.rt, err))
+        } else if args.buffer.is_null() {
+            Err(self.error("PJRT_Client_CreateUninitializedBuffer returned null buffer"))
         } else {
             Ok(PJRTBuffer {
                 rt: self.rt,
@@ -532,8 +550,8 @@ impl<'a> PJRTClient<'a> {
         device_buffer_ptr: *mut c_void,
         dims: &[i64],
         element_type: PJRT_Buffer_Type,
-        device: Option<*mut PJRT_Device>,
-        memory: Option<*mut PJRT_Memory>,
+        device: Option<PJRTDevice<'a>>,
+        memory: Option<PJRTMemory<'a>>,
         layout: Option<*mut PJRT_Buffer_MemoryLayout>,
         stream: isize,
         on_delete_callback: Option<
@@ -555,16 +573,17 @@ impl<'a> PJRTClient<'a> {
             .PJRT_Client_CreateViewOfDeviceBuffer
             .ok_or(self.error("PJRT_Client_CreateViewOfDeviceBuffer symbol not found"))?;
 
-        let device = match device {
-            Some(d) => d,
-            None => self
-                .devices()
-                .into_iter()
-                .next()
-                .ok_or_else(|| self.error("PJRT_Client has no devices"))?[0]
-                .raw(),
+        let raw_device = match device {
+            Some(d) => d.raw(),
+            None => {
+                let devices = self.devices()?;
+                let first = devices
+                    .first()
+                    .ok_or_else(|| self.error("PJRT_Client has no devices"))?;
+                first.raw()
+            }
         };
-        if device.is_null() {
+        if raw_device.is_null() {
             return Err(self.error("create_view_of_device_buffer device is null"));
         }
 
@@ -573,16 +592,20 @@ impl<'a> PJRTClient<'a> {
             extension_start: null_mut(),
             client,
             device_buffer_ptr,
-            dims: dims.as_ptr(),
+            dims: if dims.is_empty() {
+                ptr::null()
+            } else {
+                dims.as_ptr()
+            },
             num_dims: dims.len(),
             element_type,
             layout: layout.unwrap_or(null_mut()),
-            device,
+            device: raw_device,
             on_delete_callback,
             on_delete_callback_arg,
             stream,
             buffer: null_mut(),
-            memory: memory.unwrap_or(null_mut()),
+            memory: memory.as_ref().map_or(null_mut(), |m| m.raw),
         };
 
         let err = unsafe { funct(&mut args) };
@@ -605,6 +628,8 @@ impl<'a> PJRTClient<'a> {
         byte_strides: Option<&[i64]>,
         host_buffer_semantics: PJRT_HostBufferSemantics,
         device: Option<*mut PJRT_Device>,
+        memory: Option<*mut PJRT_Memory>,
+        device_layout: Option<*mut PJRT_Buffer_MemoryLayout>,
     ) -> Result<(PJRTBuffer<'a>, Option<PJRTEvent<'a>>), PJRTError<'a>> {
         let client = self.raw_checked()?;
 
@@ -628,18 +653,42 @@ impl<'a> PJRTClient<'a> {
                         dims.len()
                     )));
                 }
-                (s.as_ptr(), s.len())
+                if s.is_empty() {
+                    (ptr::null(), 0)
+                } else {
+                    (s.as_ptr(), s.len())
+                }
             }
         };
 
         let device = match device {
             Some(d) => d,
-            None => self
-                .devices()
-                .into_iter()
-                .next()
-                .ok_or_else(|| self.error("PJRT_Client has no devices"))?[0]
-                .raw(),
+            None => {
+                let devices = self.devices()?;
+                let first = devices
+                    .first()
+                    .ok_or_else(|| self.error("PJRT_Client has no devices"))?;
+                first.raw()
+            }
+        };
+        if device.is_null() {
+            return Err(self.error("buffer_from_host_buffer device is null"));
+        }
+
+        let memory = match memory {
+            Some(m) if m.is_null() => {
+                return Err(self.error("buffer_from_host_buffer memory is null"));
+            }
+            Some(m) => m,
+            None => null_mut(),
+        };
+
+        let device_layout = match device_layout {
+            Some(l) if l.is_null() => {
+                return Err(self.error("buffer_from_host_buffer device_layout is null"));
+            }
+            Some(l) => l,
+            None => null_mut(),
         };
 
         let mut args = PJRT_Client_BufferFromHostBuffer_Args {
@@ -648,14 +697,18 @@ impl<'a> PJRTClient<'a> {
             client,
             data,
             type_: element_type,
-            dims: dims.as_ptr(),
+            dims: if dims.is_empty() {
+                ptr::null()
+            } else {
+                dims.as_ptr()
+            },
             num_dims: dims.len(),
             byte_strides: byte_strides_ptr,
             num_byte_strides,
             host_buffer_semantics,
             device,
-            memory: null_mut(),
-            device_layout: null_mut(),
+            memory,
+            device_layout,
             done_with_host_buffer: null_mut(),
             buffer: null_mut(),
         };
@@ -665,7 +718,9 @@ impl<'a> PJRTClient<'a> {
             return Err(PJRTError::new(self.rt, err));
         }
         if args.buffer.is_null() {
-            return Err(self.error("PJRT_Client_BufferFromHostBuffer succeeded but returned null buffer"));
+            return Err(
+                self.error("PJRT_Client_BufferFromHostBuffer succeeded but returned null buffer")
+            );
         }
 
         let buffer = PJRTBuffer::new(self.rt, args.buffer);
@@ -717,7 +772,8 @@ impl<'a> PJRTClient<'a> {
             return Err(self.error("PJRT_Client_CreateAliasBuffer returned null alias_buffer"));
         }
         if args.fulfill_alias_buffer_cb.is_null() {
-            return Err(self.error("PJRT_Client_CreateAliasBuffer returned null fulfill_alias_buffer_cb")
+            return Err(
+                self.error("PJRT_Client_CreateAliasBuffer returned null fulfill_alias_buffer_cb")
             );
         }
 
@@ -887,6 +943,8 @@ impl<'a> PJRTClient<'a> {
             None,
             PJRT_HostBufferSemantics_PJRT_HostBufferSemantics_kImmutableOnlyDuringCall,
             device,
+            None,
+            None,
         )?;
 
         if let Some(ev) = done {
@@ -932,7 +990,8 @@ impl<'a> PJRTClient<'a> {
             if args.platform_name_size == 0 {
                 return Ok(String::new());
             }
-            return Err(self.error("PJRT_Client_PlatformName returned null platform_name with nonzero size"));
+            return Err(self
+                .error("PJRT_Client_PlatformName returned null platform_name with nonzero size"));
         }
 
         let bytes = unsafe {

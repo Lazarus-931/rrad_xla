@@ -1,4 +1,3 @@
-use rrad_pjrt::rrad_pjrt::loader::PjrtRuntime;
 use super::tools::{runtime_or_skip, TestResult};
 use std::path::{Path, PathBuf};
 

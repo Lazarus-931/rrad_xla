@@ -41,7 +41,7 @@ fn cpu_end_to_end_compile_execute_download() -> Result<(), String> {
         return Ok(());
     };
 
-    let rt = PjrtRuntime::load(&plugin_path)?;
+    let rt = PjrtRuntime::load(&plugin_path).map_err(|e| e.to_string())?;
     rt.initialize_plugin().map_err(|e| e.to_string())?;
     let client = rt.create_client().map_err(|e| e.to_string())?;
 

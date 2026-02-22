@@ -2,7 +2,7 @@ use std::ptr;
 
 use crate::pjrt_sys::*;
 use crate::rrad_pjrt::error::PJRTError;
-use crate::rrad_pjrt::loader::{error_to_string, PjrtRuntime};
+use crate::rrad_pjrt::loader::PjrtRuntime;
 
 pub struct PJRTExecuteContext<'a> {
     rt: &'a PjrtRuntime,
@@ -84,7 +84,7 @@ impl Drop for PJRTExecuteContext<'_> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            let _ = error_to_string(self.rt.api(), err);
+            let _ = PJRTError::new(self.rt, err);
         }
 
         self.raw = ptr::null_mut();

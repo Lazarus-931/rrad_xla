@@ -57,8 +57,53 @@ pub struct PJRTRecvCallbackInvocation {
     pub stream: *mut PJRT_CopyToDeviceStream,
 }
 
-pub type PJRTSendCallbackFn = fn(PJRTSendCallbackInvocation) -> Result<(), String>;
-pub type PJRTRecvCallbackFn = fn(PJRTRecvCallbackInvocation) -> Result<(), String>;
+#[derive(Clone)]
+pub struct PJRTCallbackError {
+    message: String,
+}
+
+impl PJRTCallbackError {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
+impl From<String> for PJRTCallbackError {
+    fn from(value: String) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<&str> for PJRTCallbackError {
+    fn from(value: &str) -> Self {
+        Self::new(value)
+    }
+}
+
+impl std::fmt::Display for PJRTCallbackError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::fmt::Debug for PJRTCallbackError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PJRTCallbackError")
+            .field("message", &self.message)
+            .finish()
+    }
+}
+
+impl std::error::Error for PJRTCallbackError {}
+
+pub type PJRTSendCallbackFn = fn(PJRTSendCallbackInvocation) -> Result<(), PJRTCallbackError>;
+pub type PJRTRecvCallbackFn = fn(PJRTRecvCallbackInvocation) -> Result<(), PJRTCallbackError>;
 
 #[derive(Clone, Copy)]
 pub struct PJRTSendCallbackRegistration {
@@ -74,7 +119,7 @@ pub struct PJRTRecvCallbackRegistration {
 
 struct SendCallbackState {
     callback: PJRTSendCallbackFn,
-    first_error: Mutex<Option<String>>,
+    first_error: Mutex<Option<PJRTCallbackError>>,
 }
 
 impl SendCallbackState {
@@ -85,7 +130,7 @@ impl SendCallbackState {
         }
     }
 
-    fn set_first_error(&self, message: String) {
+    fn set_first_error(&self, message: PJRTCallbackError) {
         if let Ok(mut guard) = self.first_error.lock() {
             if guard.is_none() {
                 *guard = Some(message);
@@ -93,14 +138,14 @@ impl SendCallbackState {
         }
     }
 
-    fn first_error(&self) -> Option<String> {
+    fn first_error(&self) -> Option<PJRTCallbackError> {
         self.first_error.lock().ok().and_then(|guard| guard.clone())
     }
 }
 
 struct RecvCallbackState {
     callback: PJRTRecvCallbackFn,
-    first_error: Mutex<Option<String>>,
+    first_error: Mutex<Option<PJRTCallbackError>>,
 }
 
 impl RecvCallbackState {
@@ -111,7 +156,7 @@ impl RecvCallbackState {
         }
     }
 
-    fn set_first_error(&self, message: String) {
+    fn set_first_error(&self, message: PJRTCallbackError) {
         if let Ok(mut guard) = self.first_error.lock() {
             if guard.is_none() {
                 *guard = Some(message);
@@ -119,7 +164,7 @@ impl RecvCallbackState {
         }
     }
 
-    fn first_error(&self) -> Option<String> {
+    fn first_error(&self) -> Option<PJRTCallbackError> {
         self.first_error.lock().ok().and_then(|guard| guard.clone())
     }
 }
@@ -198,11 +243,11 @@ impl ExecuteCallbackKeepalive {
         }
     }
 
-    fn first_send_error(&self) -> Option<String> {
+    fn first_send_error(&self) -> Option<PJRTCallbackError> {
         self.send_states.iter().find_map(|state| state.first_error())
     }
 
-    fn first_recv_error(&self) -> Option<String> {
+    fn first_recv_error(&self) -> Option<PJRTCallbackError> {
         self.recv_states.iter().find_map(|state| state.first_error())
     }
 }
@@ -251,7 +296,7 @@ unsafe extern "C" fn send_callback_trampoline(
         Ok(()) => ptr::null_mut(),
         Err(message) => {
             state.set_first_error(message.clone());
-            callback_error_from_message(callback_error, &message)
+            callback_error_from_message(callback_error, message.message())
         }
     }
 }
@@ -631,11 +676,11 @@ impl<'a> PJRTLoadedExecutable<'a> {
             return Err(PJRTError::new(self.rt, err));
         }
 
-        if let Some(message) = callback_keepalive.first_send_error() {
-            return Err(self.error(format!("send callback failed: {message}")));
+        if let Some(error) = callback_keepalive.first_send_error() {
+            return Err(self.error(format!("send callback failed: {}", error)));
         }
-        if let Some(message) = callback_keepalive.first_recv_error() {
-            return Err(self.error(format!("recv callback failed: {message}")));
+        if let Some(error) = callback_keepalive.first_recv_error() {
+            return Err(self.error(format!("recv callback failed: {}", error)));
         }
 
         if args.num_args != argument_ptrs.len() {

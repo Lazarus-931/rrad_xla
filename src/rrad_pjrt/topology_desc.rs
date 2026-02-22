@@ -182,7 +182,6 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
             return Err(PJRTError::new(self.rt, err));
         }
         decode_named_values(self.rt, args.attributes, args.num_attributes)
-            .map_err(|err| err.unwrap_or_else(|| self.error("NamedValue decode failed")))
     }
 }
 
@@ -369,7 +368,6 @@ impl<'a> PJRTTopologyDescription<'a> {
             return Err(PJRTError::new(self.rt, err));
         }
         decode_named_values(self.rt, args.attributes, args.num_attributes)
-            .map_err(|err| err.unwrap_or_else(|| self.error("NamedValue decode failed")))
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, PJRTError<'a>> {
@@ -749,7 +747,7 @@ fn decode_named_values<'a>(
     rt: &'a PjrtRuntime,
     attrs: *const PJRT_NamedValue,
     num_attrs: usize,
-) -> Result<Vec<PJRTNamedAttribute>, Option<PJRTError<'a>>> {
+) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
     const NV_STRING: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kString;
     const NV_INT64: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kInt64;
     const NV_INT64_LIST: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kInt64List;
@@ -761,20 +759,20 @@ fn decode_named_values<'a>(
     }
     if attrs.is_null() {
         
-        return Err(Some(PJRTError::invalid_arg(
+        return Err(PJRTError::invalid_arg(
             rt,
             "NamedValue pointer is null with nonzero count",
-        )));
+        ));
     }
 
     let values = unsafe { from_raw_parts(attrs, num_attrs) };
     let mut out = Vec::with_capacity(values.len());
     for value in values {
         if value.name.is_null() && value.name_size != 0 {
-            return Err(Some(PJRTError::invalid_arg(
+            return Err(PJRTError::invalid_arg(
                 rt,
                 "NamedValue name pointer is null",
-            )));
+            ));
         }
         let name = {
             let name_bytes = if value.name_size == 0 {
@@ -789,10 +787,10 @@ fn decode_named_values<'a>(
             NV_STRING => {
                 let ptr = unsafe { value.__bindgen_anon_1.string_value };
                 if ptr.is_null() && value.value_size != 0 {
-                    return Err(Some(PJRTError::invalid_arg(
+                    return Err(PJRTError::invalid_arg(
                         rt,
                         format!("NamedValue '{name}' has null string pointer"),
-                    )));
+                    ));
                 }
                 let bytes = if value.value_size == 0 {
                     &[]
@@ -808,10 +806,10 @@ fn decode_named_values<'a>(
             NV_INT64_LIST => {
                 let ptr = unsafe { value.__bindgen_anon_1.int64_array_value };
                 if ptr.is_null() && value.value_size != 0 {
-                    return Err(Some(PJRTError::invalid_arg(
+                    return Err(PJRTError::invalid_arg(
                         rt,
                         format!("NamedValue '{name}' has null int64 list pointer"),
-                    )));
+                    ));
                 }
                 let ints = if value.value_size == 0 {
                     Vec::new()
@@ -829,10 +827,10 @@ fn decode_named_values<'a>(
                 PJRTNamedValue::Bool(v)
             }
             other => {
-                return Err(Some(PJRTError::invalid_arg(
+                return Err(PJRTError::invalid_arg(
                     rt,
                     format!("NamedValue '{name}' has unknown type tag {other}"),
-                )));
+                ));
             }
         };
 

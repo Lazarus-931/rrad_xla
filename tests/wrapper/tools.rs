@@ -63,7 +63,7 @@ pub fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
         return Ok(None);
     };
 
-    let rt = PjrtRuntime::load(&plugin_path)?;
+    let rt = PjrtRuntime::load(&plugin_path).map_err(|e| e.to_string())?;
     rt.initialize_plugin().map_err(|e| e.to_string())?;
     Ok(Some(rt))
 }

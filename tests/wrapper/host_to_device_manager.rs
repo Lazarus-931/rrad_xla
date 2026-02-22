@@ -1,27 +1,22 @@
 use std::ptr::{null, null_mut};
 
 use super::tools::{runtime_or_skip, TestResult};
-use rrad_pjrt::pjrt_sys::{
-    PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_ShapeSpec, PJRT_ShapeSpec_STRUCT_SIZE,
-};
-use rrad_pjrt::rrad_pjrt::buffer::PJRTBuffer;
+use rrad_pjrt::pjrt_sys::PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
 use rrad_pjrt::rrad_pjrt::client::PJRTClient;
 use rrad_pjrt::rrad_pjrt::error::PJRTError;
 use rrad_pjrt::rrad_pjrt::host_to_device_manager::PjrtHtoDeviceManager;
+use rrad_pjrt::rrad_pjrt::utils::PjrtShapeSpec;
 
 const DIMS_1D: [i64; 1] = [1];
 
 fn make_manager<'a>(client: &'a PJRTClient<'a>) -> Result<PjrtHtoDeviceManager<'a>, PJRTError<'a>> {
-    let mut shape_specs = [PJRT_ShapeSpec {
-        struct_size: PJRT_ShapeSpec_STRUCT_SIZE as usize,
-        extension_start: null_mut(),
-        dims: DIMS_1D.as_ptr(),
-        num_dims: DIMS_1D.len(),
-        element_type: PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
-    }];
+    let shape_specs = [PjrtShapeSpec::new(
+        DIMS_1D.to_vec(),
+        PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
+    )];
     let mut device_layouts = [null_mut()];
 
-    client.create_buffers_for_async_host_to_device(&mut shape_specs, &mut device_layouts, None)
+    client.create_buffers_for_async_host_to_device_specs(&shape_specs, &mut device_layouts, None)
 }
 
 #[test]
@@ -33,7 +28,10 @@ fn manager_create_and_query_smoke() -> TestResult {
     let client = rt.create_client()?;
     let manager = make_manager(&client)?;
 
-    assert!(!manager.raw().is_null(), "transfer manager should not be null");
+    assert!(
+        !manager.raw().is_null(),
+        "transfer manager should not be null"
+    );
 
     let count = manager.buffer_count()?;
     assert_eq!(count, 1, "expected one staged buffer");
@@ -111,29 +109,19 @@ fn partial_buffer_transfer_smoke() -> TestResult {
 
     let payload = [1_u8, 2, 3, 4];
 
-
-    if let Some(ev) = manager.transfer_data(
-        0,
-        &payload[..2],
-        0,
-        false)? {
+    if let Some(ev) = manager.transfer_data(0, &payload[..2], 0, false)? {
         ev.await_ready()?;
         ev.ok()?;
     }
 
-    if let Some(ev) = manager.transfer_data(
-        0,
-        &payload[2..],
-        2,
-        false)? {
+    if let Some(ev) = manager.transfer_data(0, &payload[2..], 2, false)? {
         ev.await_ready()?;
         ev.ok()?;
     }
-
 
     let buffer = manager.retrieve_buffer(0)?;
 
-    let mut out  = [0_u8; 4];
+    let mut out = [0_u8; 4];
 
     buffer.to_host_buffer_blocking(&mut out)?;
 
@@ -141,4 +129,3 @@ fn partial_buffer_transfer_smoke() -> TestResult {
 
     Ok(())
 }
-

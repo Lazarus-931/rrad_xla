@@ -1404,7 +1404,6 @@ impl Drop for PJRTLoadedExecutable<'_> {
 
         let err = unsafe { f(&mut args) };
         if !err.is_null() {
-            // Drop must not panic; best-effort cleanup.
             let _ = PJRTError::new(self.rt, err);
         }
     }

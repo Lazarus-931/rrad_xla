@@ -1,14 +1,19 @@
 #[cfg(test)]
 mod client_wrapper_tests {
-    use std::ptr::null_mut;
     use super::super::setup::with_runtime_and_client;
     use super::super::tools::TestResult;
     use rrad_pjrt::pjrt_sys::{
-        PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Error_Code_PJRT_Error_Code_OK,
+        PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Error_Code_PJRT_Error_Code_INVALID_ARGUMENT,
+        PJRT_Error_Code_PJRT_Error_Code_OK,
+        PJRT_HostBufferSemantics_PJRT_HostBufferSemantics_kImmutableOnlyDuringCall,
+        PJRT_HostBufferSemantics_PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes,
+        PJRT_HostBufferSemantics_PJRT_HostBufferSemantics_kImmutableZeroCopy,
+        PJRT_HostBufferSemantics_PJRT_HostBufferSemantics_kMutableZeroCopy,
     };
     use rrad_pjrt::rrad_pjrt::client::PJRTClient;
     use rrad_pjrt::rrad_pjrt::device::PJRTDevice;
     use rrad_pjrt::rrad_pjrt::error::PJRTError;
+    use std::ptr::null_mut;
 
     const ALIAS_DIMS: [i64; 1] = [4];
 
@@ -183,7 +188,7 @@ mod client_wrapper_tests {
     #[test]
     fn client_dma_map_unmap_smoke() -> TestResult {
         with_runtime_and_client(|_rt, client| {
-            let err = client.dma_map(null_mut(), 16 );
+            let err = client.dma_map(null_mut(), 16);
             assert!(err.is_err(), "dma_map should raise error for null ptr");
 
             let err = client.dma_unmap(null_mut());
@@ -209,7 +214,10 @@ mod client_wrapper_tests {
 
             assert!(!pjrt_buffer.is_err(), "should not return an error");
 
-            assert!(!pjrt_buffer.unwrap().raw.is_null(), "buffer's raw should not be null");
+            assert!(
+                !pjrt_buffer.unwrap().raw.is_null(),
+                "buffer's raw should not be null"
+            );
 
             Ok(())
         })
@@ -218,29 +226,76 @@ mod client_wrapper_tests {
     // buffer_from_host_buffer
     #[test]
     fn buffer_from_host_buffer_smoke() -> TestResult {
+        let semantics = [
+            PJRT_HostBufferSemantics_PJRT_HostBufferSemantics_kImmutableOnlyDuringCall,
+            PJRT_HostBufferSemantics_PJRT_HostBufferSemantics_kImmutableUntilTransferCompletes,
+            PJRT_HostBufferSemantics_PJRT_HostBufferSemantics_kImmutableZeroCopy,
+            PJRT_HostBufferSemantics_PJRT_HostBufferSemantics_kMutableZeroCopy,
+        ];
+
         with_runtime_and_client(|_rt, client| {
             let element_type = PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
+            let data: [f32; 4] = [1.0, 2.0, 3.0, 4.0];
+            let dims: [i64; 1] = [4];
+            let byte_strides: [i64; 1] = [std::mem::size_of::<f32>() as i64];
 
-            let data: [i8;3] = [1_i8, 2, 3];
+            for semantics in semantics {
+                let (buffer, done) = client.buffer_from_host_buffer(
+                    data.as_ptr().cast::<std::ffi::c_void>(),
+                    element_type,
+                    &dims,
+                    Some(&byte_strides),
+                    semantics,
+                    None,
+                    None,
+                    None,
+                )?;
 
-            let dims = ALIAS_DIMS;
+                if let Some(ev) = done {
+                    ev.await_ready()?;
+                    ev.ok()?;
+                }
 
-            let byte_strides: Option<[i64; 1]> = Some(dims);
+                assert!(
+                    !buffer.raw.is_null(),
+                    "buffer_from_host_buffer returned null buffer"
+                );
+            }
 
-            for semantics in []
-            let (buffer, _event) = client.buffer_from_host_buffer(
-                data.as_ptr().cast::<std::ffi::c_void>(),
-                element_type,
-                &dims,
-                byte_strides,
-
-
-            )
             Ok(())
-
         })
     }
 
+    #[test]
+    fn create_error_buffer_smoke() -> TestResult {
+        with_runtime_and_client(|_rt, client| {
+            let error_code = PJRT_Error_Code_PJRT_Error_Code_INVALID_ARGUMENT;
+            let error_message = "test error message";
+            let shape_dims: &[i64] = &[1_i64, 2, 3];
+            let shape_element_type = PJRT_Buffer_Type_PJRT_Buffer_Type_F32;
 
+            let buffer = client.create_error_buffer(
+                error_code,
+                error_message,
+                shape_dims,
+                shape_element_type,
+                None,
+                None,
+            )?;
 
+            assert!(
+                !buffer.raw.is_null(),
+                "create_error_buffer returned null buffer"
+            );
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn close_smoke() -> TestResult {
+        with_runtime_and_client(|_rt, client| {
+            client.close()?;
+            Ok(())
+        })
+    }
 }

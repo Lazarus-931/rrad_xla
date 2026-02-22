@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod copy_to_device_stream_wrapper_tests {
+    use std::env::remove_var;
     use std::ptr::null_mut;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
@@ -151,5 +152,47 @@ mod copy_to_device_stream_wrapper_tests {
     #[test]
     fn add_chunk_smoke() -> TestResult {
         with_runtime_and_client(|rt, client| run_recv_execute(rt, &client))
+    }
+
+    #[test]
+    fn drop_smoke() -> TestResult {
+        with_runtime_and_client(|rt, _client| {
+            let executable = _client.compile_on_topology_code(MODULE_RECV_ONE, "mlir", &[], None)?;
+
+            let input_buffer = _client.buffer_from_host_slice_copy(
+                &[41.0f32],
+                PJRT_Buffer_Type_PJRT_Buffer_Type_F32,
+                &[],
+                None,
+            )?;
+
+            RUNTIME_PTR.store((rt as *const PjrtRuntime) as usize, Ordering::SeqCst);
+
+            let recv_callbacks = [PJRTRecvCallbackRegistration {
+                channel_id: RECV_CHANNEL_ID,
+                callback: recv_chunk_callback
+            }];
+
+            let send_callbacks: [PJRTSendCallbackRegistration; 0] = [];
+
+            {
+                let (_outputs, done) = executable.execute_with_options(
+                    &[&input_buffer],
+                    None,
+                    0,
+                    1,
+                    0,
+                    &[],
+                    null_mut(),
+                    &send_callbacks,
+                    &recv_callbacks,
+                )?;
+                done.ok()?;
+            }
+
+            let platform = _client.platform_name()?;
+            assert!(!platform.is_empty(), "expected drop");
+            Ok(())
+        })
     }
 }

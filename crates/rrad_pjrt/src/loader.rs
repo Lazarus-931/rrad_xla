@@ -1,5 +1,4 @@
 use libloading::{Library, Symbol};
-use std::fmt;
 use std::path::Path;
 use std::ptr;
 use std::slice::from_raw_parts;
@@ -9,30 +8,12 @@ use crate::ffi::pjrt_sys::*;
 use crate::client::PJRTClient;
 use crate::device::PJRTDevice;
 use crate::error::PJRTError;
+use crate::ffi::error::{PjrtBindingError, PjrtFfiError};
 use crate::topology_desc::{PJRTNamedAttribute, PJRTNamedValue};
 
 type GetPjrtApiFn = unsafe extern "C" fn() -> *const PJRT_Api;
 
-#[derive(Debug, Clone)]
-pub struct PjrtRuntimeLoadError {
-    message: String,
-}
 
-impl PjrtRuntimeLoadError {
-    fn new(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-        }
-    }
-}
-
-impl fmt::Display for PjrtRuntimeLoadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.message)
-    }
-}
-
-impl std::error::Error for PjrtRuntimeLoadError {}
 
 pub struct PjrtRuntime {
     _lib: Library,
@@ -40,29 +21,40 @@ pub struct PjrtRuntime {
 }
 
 impl PjrtRuntime {
-    pub fn load(plugin_path: &Path) -> Result<Self, PjrtRuntimeLoadError> {
+    pub fn load(plugin_path: &Path) -> Result<Self, PjrtBindingError> {
         let lib = unsafe { Library::new(plugin_path) }
-            .map_err(|e| PjrtRuntimeLoadError::new(format!("Failed to load plugin: {e}")))?;
+            .map_err(|e| PjrtBindingError::new(PjrtFfiError::FailedToLoadPjrtLib { message: e.to_string() }))?;
 
         let get_api: Symbol<GetPjrtApiFn> = unsafe { lib.get(b"GetPjrtApi\0") }
-            .map_err(|e| PjrtRuntimeLoadError::new(format!("GetPjrtApi symbol not found: {e}")))?;
+            .map_err(|e| PjrtBindingError::new(PjrtFfiError::FailedToGetPjrtApi { message: e.to_string() }))?;
 
         let api = unsafe { get_api() };
 
         if api.is_null() {
-            return Err(PjrtRuntimeLoadError::new("GetPjrtApi returned null"));
+            return Err(PjrtBindingError::new(PjrtFfiError::NullValueReturned { message: "GetPjrtApi returned null".to_string() }));
         }
 
         let ver = unsafe { (*api).pjrt_api_version };
 
         if ver.major_version != PJRT_API_MAJOR as i32 {
-            return Err(PjrtRuntimeLoadError::new(format!(
-                "PJRT API major mismatch: host={} plugin={}",
-                PJRT_API_MAJOR, ver.major_version
-            )));
+            return Err(PjrtBindingError::new(
+
+              PjrtFfiError::ApiVersionMismatch {
+                  major_version: ver.major_version,
+                  minor_version: ver.minor_version
+              }));
         }
 
-        if ver.minor_version < PJRT_API_MINOR as i32 {
+
+        if (ver.major_version == PJRT_API_MAJOR as i32) && (ver.minor_version < PJRT_API_MINOR as i32) {
+            return Err(PjrtBindingError::new(
+                PjrtFfiError::ApiVersionMismatch{
+                    major_version: ver.major_version,
+                    minor_version: ver.minor_version,
+                }));
+        }
+
+        if ver.minor_version <= PJRT_API_MINOR as i32 {
             eprintln!(
                 "warning: plugin minor {} is older than header minor {}",
                 ver.minor_version, PJRT_API_MINOR

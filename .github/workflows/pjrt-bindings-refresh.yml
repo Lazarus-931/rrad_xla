@@ -54,7 +54,7 @@ jobs:
 
       - name: Regenerate PJRT bindings
         if: steps.xla_sha.outputs.needs_update == 'true'
-        run: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h src/pjrt_bindings.rs
+        run: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/pjrt_bindings.rs
 
       - name: Update pinned XLA commit in CI workflow
         if: steps.xla_sha.outputs.needs_update == 'true'
@@ -82,7 +82,7 @@ jobs:
 
       - name: Run ABI layout test
         if: steps.xla_sha.outputs.needs_update == 'true'
-        run: cargo test --test abi_layout
+        run: cargo test --manifest-path crates/rrad_pjrt/Cargo.toml --test wrapper_suite --no-run
 
       - name: Create pull request
         if: steps.xla_sha.outputs.needs_update == 'true'
@@ -95,11 +95,11 @@ jobs:
           body: |
             Automated weekly refresh:
             - updated `XLA_COMMIT` in `.github/workflows/pjrt-ci.yml`
-            - regenerated `src/pjrt_bindings.rs` from `xla/pjrt/c/pjrt_c_api.h`
-            - ran `cargo test --test abi_layout`
+            - regenerated `crates/rrad_pjrt/src/pjrt_bindings.rs` from `xla/pjrt/c/pjrt_c_api.h`
+            - ran `cargo test --manifest-path crates/rrad_pjrt/Cargo.toml --test wrapper_suite --no-run`
           labels: |
             dependencies
             automation
           add-paths: |
             .github/workflows/pjrt-ci.yml
-            src/pjrt_bindings.rs
+            crates/rrad_pjrt/src/pjrt_bindings.rs

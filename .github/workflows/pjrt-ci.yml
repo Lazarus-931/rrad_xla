@@ -42,12 +42,12 @@ jobs:
           git checkout FETCH_HEAD
 
       - name: Regenerate PJRT bindings from pinned XLA
-        run: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h src/pjrt_bindings.rs
+        run: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/pjrt_bindings.rs
 
       - name: Verify bindings are up to date
         run: |
-          if ! git diff --exit-code -- src/pjrt_bindings.rs; then
-            echo "::error::src/pjrt_bindings.rs is out of date. Run ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h src/pjrt_bindings.rs and commit the result."
+          if ! git diff --exit-code -- crates/rrad_pjrt/src/pjrt_bindings.rs; then
+            echo "::error::crates/rrad_pjrt/src/pjrt_bindings.rs is out of date. Run ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/pjrt_bindings.rs and commit the result."
             exit 1
           fi
 
@@ -71,12 +71,12 @@ jobs:
           python-version: "3.11"
 
       - name: Cargo Test
-        run: cargo test --all-targets
+        run: cargo test --manifest-path crates/rrad_pjrt/Cargo.toml --all-targets
 
       - name: Validate Test Scripts
         if: runner.os != 'Windows'
         run: |
-          bash -n tests/scripts/common.sh tests/scripts/run_pjrt_loader_smoke.sh tests/scripts/run_pjrt_cpu_runtime_test.sh
+          bash -n crates/rrad_pjrt/tests/scripts/common.sh crates/rrad_pjrt/tests/scripts/run_pjrt_loader_smoke.sh crates/rrad_pjrt/tests/scripts/run_pjrt_cpu_runtime_test.sh
 
   pjrt_loader_integration:
     name: PJRT Loader Integration (macOS)
@@ -137,14 +137,14 @@ jobs:
             //xla/pjrt/c:pjrt_c_api_cpu_plugin.so
 
       - name: Run Rust PJRT Loader Smoke
-        run: tests/scripts/run_pjrt_loader_smoke.sh
+        run: crates/rrad_pjrt/tests/scripts/run_pjrt_loader_smoke.sh
 
       - name: Run Wrapper Tests
         run: |
-          source tests/scripts/common.sh
+          source crates/rrad_pjrt/tests/scripts/common.sh
           export PJRT_PLUGIN="$(resolve_pjrt_plugin_path)"
-          cargo test --test wrapper_suite -- --nocapture
+          cargo test --manifest-path crates/rrad_pjrt/Cargo.toml --test wrapper_suite -- --nocapture
 
       - name: Run Rust PJRT CPU Runtime Test
-        run: tests/scripts/run_pjrt_cpu_runtime_test.sh
+        run: crates/rrad_pjrt/tests/scripts/run_pjrt_cpu_runtime_test.sh
 

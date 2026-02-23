@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod client_wrapper_tests {
+mod client_bindings_tests {
     use super::super::setup::with_runtime_and_client;
     use super::super::tools::TestResult;
     use rrad_pjrt::pjrt_sys::{

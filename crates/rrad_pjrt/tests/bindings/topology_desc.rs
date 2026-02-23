@@ -1,6 +1,6 @@
 #[cfg(test)]
-mod topology_desc_wrapper_tests {
-    // Remaining wrapper methods that still need dedicated tests:
+mod topology_desc_bindings_tests {
+    // Remaining bindings methods that still need dedicated tests:
     // - PJRTTopologyDescription::create
     // - PJRTTopologyDescription::compile_and_load
     // - PJRTTopologyDescription::compile_and_load_code

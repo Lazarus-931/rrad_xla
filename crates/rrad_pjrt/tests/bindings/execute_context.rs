@@ -1,6 +1,6 @@
 #[cfg(test)]
-mod execute_context_wrapper_tests {
-    // Remaining wrapper methods that still need dedicated tests:
+mod execute_context_bindings_tests {
+    // Remaining bindings methods that still need dedicated tests:
     // - PJRTExecuteContext::raw
     // - execute-context interaction with explicit extension chain args (when added)
 

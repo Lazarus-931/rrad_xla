@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod memory_wrapper_tests {
+mod memory_bindings_tests {
     // Remaining test gaps for `src/rrad_pjrt/memory.rs`:
     // - Negative-path tests for null raw handle on: id, kind, kind_id, to_string,
     //   debug_string, addressable_by_device.

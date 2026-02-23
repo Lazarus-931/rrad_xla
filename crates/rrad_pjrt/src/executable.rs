@@ -5,7 +5,7 @@ use crate::error::PJRTError;
 use crate::event::PJRTEvent;
 use crate::execute_context::PJRTExecuteContext;
 use crate::loader::PjrtRuntime;
-use std::ptr;
+use std::{ptr, vec};
 use std::ptr::{null, null_mut};
 use std::slice::from_raw_parts;
 use std::sync::Mutex;
@@ -15,8 +15,35 @@ pub struct PJRTLoadedExecutable<'a> {
     pub raw: *mut PJRT_LoadedExecutable,
 }
 
+pub struct CostAnalysisResult {
+    pub result: String
+}
+
 // Back-compat with the original name in this crate.
-pub type PJRTExecutable<'a> = PJRTLoadedExecutable<'a>;
+pub struct PJRTExecutable<'a> {
+    pub rt: &'a PjrtRuntime,
+    pub raw: *mut PJRT_Executable,
+}
+
+//generic container for easier api/tests
+pub struct CompiledMemoryStats {
+    pub generated_code_size_in_bytes: i64,
+    pub argument_size_in_bytes: i64,
+    pub output_size_in_bytes: i64,
+    pub alias_size_in_bytes: i64,
+    pub temp_size_in_bytes: i64,
+    pub host_generated_code_size_in_bytes: i64,
+    pub host_argument_size_in_bytes: i64,
+    pub host_output_size_in_bytes: i64,
+    pub host_alias_size_in_bytes: i64,
+    pub host_temp_size_in_bytes: i64,
+    pub peak_memory_in_bytes: i64,
+    pub total_size_in_bytes: i64,
+}
+
+pub struct OutputShape {
+    pub shape: Vec<i64>
+}
 
 #[derive(Clone, Copy)]
 pub struct PJRTExecuteRunOptions<'a> {
@@ -1231,7 +1258,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
 
-    pub fn get_compiled_memory_stats(&self) -> Result<Vec<i64>, PJRTError<'a>> {
+    pub fn get_compiled_memory_stats(&self) -> Result<CompiledMemoryStats, PJRTError<'a>> {
         let exec = self.executable()?;
 
         let func = self
@@ -1263,26 +1290,26 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if !err.is_null() {
             Err(PJRTError::new(self.rt, err))
         } else {
-            let stats = vec![
-                args.generated_code_size_in_bytes,
-                args.argument_size_in_bytes,
-                args.output_size_in_bytes,
-                args.alias_size_in_bytes,
-                args.temp_size_in_bytes,
-                args.host_generated_code_size_in_bytes,
-                args.host_argument_size_in_bytes,
-                args.host_output_size_in_bytes,
-                args.host_alias_size_in_bytes,
-                args.host_temp_size_in_bytes,
-                args.peak_memory_in_bytes,
-                args.total_size_in_bytes,
-            ];
+            let stats = CompiledMemoryStats {
+                generated_code_size_in_bytes: args.generated_code_size_in_bytes,
+                argument_size_in_bytes: args.argument_size_in_bytes,
+                output_size_in_bytes: args.output_size_in_bytes,
+                alias_size_in_bytes: args.alias_size_in_bytes,
+                temp_size_in_bytes: args.temp_size_in_bytes,
+                host_generated_code_size_in_bytes: args.host_generated_code_size_in_bytes,
+                host_argument_size_in_bytes: args.host_argument_size_in_bytes,
+                host_output_size_in_bytes: args.host_output_size_in_bytes,
+                host_alias_size_in_bytes: args.host_alias_size_in_bytes,
+                host_temp_size_in_bytes: args.host_temp_size_in_bytes,
+                peak_memory_in_bytes: args.peak_memory_in_bytes,
+                total_size_in_bytes: args.total_size_in_bytes,
+            };
 
             Ok(stats)
         }
     }
 
-    pub fn get_cost_analysis(&self) -> Result<String, PJRTError<'a>> {
+    pub fn get_cost_analysis(&self) -> Result<CostAnalysisResult, PJRTError<'a>> {
         let exec = self.executable()?;
 
         let func = self
@@ -1296,7 +1323,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
             extension_start: null_mut(),
             executable: exec,
             num_properties: 0,
-            properties: ptr::null(),
+            properties: null(),
         };
 
         let err = unsafe { func(&mut args) };
@@ -1304,13 +1331,18 @@ impl<'a> PJRTLoadedExecutable<'a> {
         if !err.is_null() {
             Err(PJRTError::new(self.rt, err))
         } else if args.num_properties == 0 {
-            Ok(String::new())
+            Ok(
+                CostAnalysisResult {
+                    result: String::new()
+                }
+            )
         } else if args.properties.is_null() {
             Err(
                 self.error(
                     "PJRT_Executable_GetCostAnalysis returned null properties with nonzero count"))
         } else {
             let properties = unsafe { from_raw_parts(args.properties, args.num_properties) };
+
             let names = properties
                 .iter()
                 .map(|property| {
@@ -1325,7 +1357,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
                 })
                 .collect::<Vec<_>>()
                 .join(",");
-            Ok(names)
+            Ok(CostAnalysisResult{ result: names })
         }
     }
 
@@ -1354,7 +1386,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn output_dimension(&self) -> Result<i64, PJRTError<'a>> {
+    pub fn output_dimensions(&self) -> Result<OutputShape, PJRTError<'a>> {
         let exec = self.executable()?;
 
         let func = self
@@ -1379,9 +1411,21 @@ impl<'a> PJRTLoadedExecutable<'a> {
             Err(self.error("PJRT_Executable_OutputDimensions returned no outputs"))
         } else if args.dims.is_null() {
             Err(self.error("PJRT_Executable_OutputDimensions returned null dims"))
+        } else if args.dim_sizes.is_null() {
+            Err(self.error("PJRT_Executable_OutputDimensions returned null dim_sizes"))
+        } else if args.num_outputs != 1 {
+            Err(self.error(format!(
+                "output_dimensions supports single-output executables, got {} outputs",
+                args.num_outputs
+            )))
         } else {
-            let dims = unsafe { from_raw_parts(args.dims as *const i64, args.num_outputs) };
-            Ok(dims[0])
+            let dim_sizes = unsafe { from_raw_parts(args.dim_sizes, args.num_outputs) };
+            let first_output_rank = dim_sizes[0];
+            let dims = unsafe { from_raw_parts(args.dims, first_output_rank) };
+            let output_dims = OutputShape {
+                shape: Vec::from(dims),
+            };
+            Ok(output_dims)
         }
     }
 }

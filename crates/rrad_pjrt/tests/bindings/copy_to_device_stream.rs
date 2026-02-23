@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod copy_to_device_stream_wrapper_tests {
+mod copy_to_device_stream_bindings_tests {
         use std::ptr::null_mut;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 

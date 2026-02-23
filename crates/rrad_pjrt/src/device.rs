@@ -343,7 +343,7 @@ impl<'a> PJRTDevice<'a> {
             .collect())
     }
 
-    pub fn default_memory(&self) -> Result<*mut PJRT_Memory, PJRTError<'a>> {
+    pub fn default_memory(&self) -> Result<PJRTMemory<'a>, PJRTError<'a>> {
         let raw = self.raw_checked().map_err(|e| e )?;
 
         let f = self.rt.api().PJRT_Device_DefaultMemory.ok_or_else(|| {
@@ -365,12 +365,14 @@ impl<'a> PJRTDevice<'a> {
             return Err(self
                 .error("PJRT_Device_DefaultMemory returned null memory"))
         }
-        Ok(args.memory)
+        let memory = PJRTMemory {
+            rt: self.rt,
+            raw: args.memory,
+        };
+        Ok(memory)
     }
 
-    pub fn default_memory_ref(&self) -> Result<PJRTMemory<'a>, PJRTError<'a>> {
-        Ok(PJRTMemory::new(self.rt, self.default_memory()?))
-    }
+
 
     pub fn id(&self) -> Result<i32, PJRTError<'a>> {
         self.description()?.id()

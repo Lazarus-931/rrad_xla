@@ -1,6 +1,6 @@
 #[cfg(test)]
-mod compile_wrapper_tests {
-    // Remaining wrapper methods that still need dedicated tests:
+mod compile_bindings_tests {
+    // Remaining bindings methods that still need dedicated tests:
     // - PJRTCompiler::addressable_devices
 
     use super::super::setup::with_runtime_and_client;
@@ -153,7 +153,7 @@ ENTRY main {
             let compiler = client.compiler();
             let result = compiler.compile(HLO_TEXT_ADD_ONE, HLO_FORMAT, COMPILE_OPTIONS);
 
-            // This verifies the Rust wrapper forwards non-MLIR format strings through
+            // This verifies the Rust bindings forwards non-MLIR format strings through
             // PJRT_Client_Compile; backend acceptance is plugin/version specific.
             match result {
                 Ok(_) => {}
@@ -162,7 +162,7 @@ ENTRY main {
                     assert!(
                         !msg.contains("program_code must not be empty")
                             && !msg.contains("format must not be empty"),
-                        "expected backend compile error or success for HLO path, got wrapper validation error: {msg}"
+                        "expected backend compile error or success for HLO path, got bindings validation error: {msg}"
                     );
                 }
             }
@@ -185,7 +185,7 @@ ENTRY main {
                     assert!(
                         !msg.contains("program_code must not be empty")
                             && !msg.contains("format must not be empty"),
-                        "expected backend compile error or success for stablehlo path, got wrapper validation error: {msg}"
+                        "expected backend compile error or success for stablehlo path, got bindings validation error: {msg}"
                     );
                 }
             }

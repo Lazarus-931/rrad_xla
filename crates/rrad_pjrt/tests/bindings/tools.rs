@@ -69,7 +69,7 @@ pub fn resolve_plugin_path() -> Option<PathBuf> {
 
 pub fn runtime_or_skip() -> Result<Option<PjrtRuntime>, String> {
     let Some(plugin_path) = resolve_plugin_path() else {
-        eprintln!("Skipping wrapper tests: PJRT plugin not found");
+        eprintln!("Skipping bindings tests: PJRT plugin not found");
         return Ok(None);
     };
 

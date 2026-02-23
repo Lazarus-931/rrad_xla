@@ -1,6 +1,6 @@
 #[cfg(test)]
-mod unified_wrapper_tests {
-    // Remaining integration coverage gaps for wrapper interoperability:
+mod unified_bindings_tests {
+    // Remaining integration coverage gaps for bindings interoperability:
     // - topology compile_and_load* paths in unified flow
     // - create/deserialize/serialize + execute_with_context in one end-to-end test
 

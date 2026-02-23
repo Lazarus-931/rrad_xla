@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod event_wrapper_tests {
+mod event_bindings_tests {
     use std::ptr::null_mut;
     use std::sync::atomic::{AtomicBool, Ordering};
 

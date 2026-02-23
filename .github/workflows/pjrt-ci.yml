@@ -139,11 +139,11 @@ jobs:
       - name: Run Rust PJRT Loader Smoke
         run: crates/rrad_pjrt/tests/scripts/run_pjrt_loader_smoke.sh
 
-      - name: Run Wrapper Tests
+      - name: Run Bindings Tests
         run: |
           source crates/rrad_pjrt/tests/scripts/common.sh
           export PJRT_PLUGIN="$(resolve_pjrt_plugin_path)"
-          cargo test --manifest-path crates/rrad_pjrt/Cargo.toml --test wrapper_suite -- --nocapture
+          cargo test --manifest-path crates/rrad_pjrt/Cargo.toml --test bindings_suite -- --nocapture
 
       - name: Run Rust PJRT CPU Runtime Test
         run: crates/rrad_pjrt/tests/scripts/run_pjrt_cpu_runtime_test.sh

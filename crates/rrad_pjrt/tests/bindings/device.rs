@@ -1,6 +1,6 @@
 #[cfg(test)]
-mod device_wrapper_tests {
-    // Remaining wrapper methods that still need dedicated tests:
+mod device_bindings_tests {
+    // Remaining bindings methods that still need dedicated tests:
     // - PJRTDevice::memory_stats
     // - PJRTDevice::poison_execution
     // - PJRTDevice::default_memory_ref
@@ -95,13 +95,13 @@ mod device_wrapper_tests {
             let device = &raw_devices[0];
             let default_memory = device.default_memory()?;
             assert!(
-                !default_memory.is_null(),
+                !default_memory.raw.is_null(),
                 "default_memory should not be null"
             );
 
             let memories = device.addressable_memories()?;
             assert!(
-                memories.iter().any(|m| m.raw == default_memory),
+                memories.iter().any(|m| m.raw == default_memory.raw),
                 "default memory should be part of addressable memories"
             );
             Ok(())

@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod host_to_device_manager_wrapper_tests {
+mod host_to_device_manager_bindings_tests {
 
     use std::ptr::{null, null_mut};
 

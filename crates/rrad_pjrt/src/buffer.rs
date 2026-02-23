@@ -555,9 +555,9 @@ impl<'a> PJRTBuffer<'a> {
         Ok(PJRTBuffer::new(self.rt, args.out_buffer))
     }
 
-    pub fn copy_to_memory(&self, dst_memory: *mut PJRT_Memory) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+    pub fn copy_to_memory(&self, dst_memory: PJRTMemory<'a>) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
         let raw = self.raw_checked()?;
-        if dst_memory.is_null() {
+        if dst_memory.raw.is_null() {
             return Err(self.error("copy_to_memory: dst_memory is null"));
         }
 
@@ -571,7 +571,7 @@ impl<'a> PJRTBuffer<'a> {
             struct_size: PJRT_Buffer_CopyToMemory_Args_STRUCT_SIZE as usize,
             extension_start: null_mut(),
             buffer: raw,
-            dst_memory,
+            dst_memory: dst_memory.raw,
             dst_buffer: null_mut(),
         };
 

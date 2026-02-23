@@ -23,35 +23,29 @@ pub struct PjrtRuntime {
 impl PjrtRuntime {
     pub fn load(plugin_path: &Path) -> Result<Self, PjrtBindingError> {
         let lib = unsafe { Library::new(plugin_path) }
-            .map_err(|e| PjrtBindingError::new(PjrtFfiError::FailedToLoadPjrtLib { message: e.to_string() }))?;
+            .map_err(|e| PjrtBindingError::lib_load_failed(e.to_string()))?;
 
         let get_api: Symbol<GetPjrtApiFn> = unsafe { lib.get(b"GetPjrtApi\0") }
-            .map_err(|e| PjrtBindingError::new(PjrtFfiError::FailedToGetPjrtApi { message: e.to_string() }))?;
+            .map_err(|e| PjrtBindingError::failed_to_get_pjrt_api(e.to_string()))?;
 
         let api = unsafe { get_api() };
 
         if api.is_null() {
-            return Err(PjrtBindingError::new(PjrtFfiError::NullValueReturned { message: "GetPjrtApi returned null".to_string() }));
+            return Err(PjrtBindingError::new(PjrtFfiError::NullValueReturned{message: "GetPjrtApi returned null".to_string()}));
         }
 
         let ver = unsafe { (*api).pjrt_api_version };
 
         if ver.major_version != PJRT_API_MAJOR as i32 {
-            return Err(PjrtBindingError::new(
-
-              PjrtFfiError::ApiVersionMismatch {
-                  major_version: ver.major_version,
-                  minor_version: ver.minor_version
-              }));
+            return Err(PjrtBindingError::api_version_mismatch(ver.major_version, ver.minor_version));
         }
 
 
         if (ver.major_version == PJRT_API_MAJOR as i32) && (ver.minor_version < PJRT_API_MINOR as i32) {
-            return Err(PjrtBindingError::new(
-                PjrtFfiError::ApiVersionMismatch{
-                    major_version: ver.major_version,
-                    minor_version: ver.minor_version,
-                }));
+            return Err(PjrtBindingError::api_version_mismatch(
+                ver.major_version,
+                ver.minor_version
+            ));
         }
 
         if ver.minor_version <= PJRT_API_MINOR as i32 {

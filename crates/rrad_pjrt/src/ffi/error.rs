@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 use crate::ffi::pjrt_bindings::PJRT_Api;
 
@@ -9,7 +9,7 @@ pub struct PjrtBindingError {
 }
 
 // central binding to ffi error
-#[derive(Error, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Error, Debug)]
 pub enum PjrtFfiError {
 
     // when rrad_pjrt does not support the pjrt_c_api
@@ -65,6 +65,10 @@ impl PjrtBindingError {
         Self::new(PjrtFfiError::DeprecatedApi { rrad_pjrt_bind: pjrt_c_api.into(), message: msg.into() })
     }
 
+    pub fn failed_to_get_pjrt_api<M: Into<String>>(msg: M) -> Self {
+        Self::new(PjrtFfiError::FailedToGetPjrtApi { message: msg.into() })
+    }
+
     pub fn null_value_returned<M: Into<String>>(msg: &'static str) -> Self {
         Self::new(PjrtFfiError::NullValueReturned { message: msg.into() })
     }
@@ -80,10 +84,14 @@ impl PjrtBindingError {
     pub fn struct_size_mismatch<M: Into<String>>(msg: &'static str, expected: usize, actual: usize, api: &'static str) -> Self {
         Self::new(PjrtFfiError::StructSizeMismatch { message: msg.into(), expected, actual, api })
     }
+
+    pub fn api_version_mismatch(major_version: i32, minor_version: i32) -> Self {
+        Self::new(PjrtFfiError::ApiVersionMismatch { major_version, minor_version })
+    }
 }
 
 impl Debug for PjrtBindingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }

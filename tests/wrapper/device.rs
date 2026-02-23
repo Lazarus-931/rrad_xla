@@ -1,160 +1,128 @@
-use super::tools::{runtime_or_skip, TestResult};
-use std::path::{Path, PathBuf};
+#[cfg(test)]
+mod device_wrapper_tests {
+    // Remaining wrapper methods that still need dedicated tests:
+    // - PJRTDevice::memory_stats
+    // - PJRTDevice::poison_execution
+    // - PJRTDevice::default_memory_ref
+    // - PJRTDevice::attributes
+    // - PJRTDevice::debug_error
+    // - PJRTDeviceDescriptionRef::{process_index, debug_string, attributes}
 
-fn resolve_plugin_path() -> Option<PathBuf> {
-    if let Ok(path) = std::env::var("PJRT_PLUGIN") {
-        let p = PathBuf::from(path);
-        if p.is_file() {
-            return Some(p);
-        }
+    use super::super::setup::with_runtime_and_client;
+    use super::super::tools::TestResult;
+
+    #[test]
+    fn general_hardware_smoke() -> TestResult {
+        with_runtime_and_client(|_rt, client| {
+            let raw_devices = client.devices().map_err(|e| e.to_string())?;
+            for device in raw_devices {
+                assert!(!device.is_null(), "raw device should not be null");
+                let hardware_id = device.local_hardware_id()?;
+                let async_tracking_event = device.create_async_tracking_event("test")?;
+                assert!(hardware_id >= 0, "local hardware id should be non-negative");
+                assert!(
+                    !async_tracking_event.raw().is_null(),
+                    "async tracking event should not be null"
+                );
+            }
+            Ok(())
+        })
     }
 
-    let candidates = [
-        "xla/bazel-bin/xla/pjrt/c/pjrt_c_api_cpu_plugin.so",
-        "xla/bazel-bin/xla/pjrt/c/pjrt_c_api_cpu_plugin.dylib",
-        "xla/bazel-bin/xla/pjrt/c/pjrt_c_api_cpu_plugin",
-    ];
-    for candidate in candidates {
-        let p = Path::new(candidate).to_path_buf();
-        if p.is_file() {
-            return Some(p);
-        }
+    #[test]
+    fn device_basic_metadata_smoke() -> TestResult {
+        with_runtime_and_client(|_rt, client| {
+            let raw_devices = client.devices().map_err(|e| e.to_string())?;
+            assert!(!raw_devices.is_empty(), "expected at least one device");
+            assert!(
+                !raw_devices[0].is_null(),
+                "first raw device should not be null"
+            );
+
+            let device = &raw_devices[0];
+            assert!(device.id()? >= 0, "device id should be non-negative");
+            assert!(
+                !device.kind()?.is_empty(),
+                "device kind should be non-empty"
+            );
+            Ok(())
+        })
     }
 
-    None
-}
+    #[test]
+    fn device_description_smoke() -> TestResult {
+        with_runtime_and_client(|_rt, client| {
+            let raw_devices = client.devices().map_err(|e| e.to_string())?;
+            assert!(!raw_devices.is_empty(), "expected at least one device");
 
+            let device = &raw_devices[0];
+            let desc = device.description()?;
 
-
-#[test]
-fn general_hardware_smoke() -> TestResult {
-    let Some(rt) = runtime_or_skip()? else {
-        return Ok(());
-    };
-
-    let client = rt.create_client()?;
-    let raw_devices = client.devices().map_err(|e| e.to_string())?;
-    for device in raw_devices {
-        assert!(!device.is_null(), "raw device should not be null");
-        let hardware_id = device.local_hardware_id()?;
-        let async_tracking_event = device.create_async_tracking_event("test")?;
-        assert!(hardware_id >= 0, "local hardware id should be non-negative");
-        assert!(
-            !async_tracking_event.raw().is_null(),
-            "async tracking event should not be null"
-        );
+            assert!(desc.id()? >= 0, "description id should be non-negative");
+            assert!(
+                !desc.kind()?.is_empty(),
+                "description kind should be non-empty"
+            );
+            assert!(
+                !desc.to_string()?.is_empty(),
+                "description to_string should be non-empty"
+            );
+            Ok(())
+        })
     }
-    Ok(())
-}
 
-#[test]
-fn device_basic_metadata_smoke() -> TestResult {
-    let Some(rt) = runtime_or_skip()? else {
-        return Ok(());
-    };
+    #[test]
+    fn device_is_addressable_smoke() -> TestResult {
+        with_runtime_and_client(|_rt, client| {
+            let raw_devices = client.devices().map_err(|e| e.to_string())?;
+            assert!(!raw_devices.is_empty(), "expected at least one device");
 
-    let client = rt.create_client()?;
-    let raw_devices = client.devices().map_err(|e| e.to_string())?;
-    assert!(!raw_devices.is_empty(), "expected at least one device");
-    assert!(
-        !raw_devices[0].is_null(),
-        "first raw device should not be null"
-    );
+            let device = &raw_devices[0];
+            assert!(
+                device.is_addressable()?,
+                "first runtime device should be addressable"
+            );
+            Ok(())
+        })
+    }
 
-    let device = &raw_devices[0];
-    assert!(device.id()? >= 0, "device id should be non-negative");
-    assert!(
-        !device.kind()?.is_empty(),
-        "device kind should be non-empty"
-    );
-    Ok(())
-}
+    #[test]
+    fn device_default_memory_in_addressable_memories_smoke() -> TestResult {
+        with_runtime_and_client(|_rt, client| {
+            let raw_devices = client.devices().map_err(|e| e.to_string())?;
+            assert!(!raw_devices.is_empty(), "expected at least one device");
 
-#[test]
-fn device_description_smoke() -> TestResult {
-    let Some(rt) = runtime_or_skip()? else {
-        return Ok(());
-    };
+            let device = &raw_devices[0];
+            let default_memory = device.default_memory()?;
+            assert!(
+                !default_memory.is_null(),
+                "default_memory should not be null"
+            );
 
-    let client = rt.create_client()?;
-    let raw_devices = client.devices().map_err(|e| e.to_string())?;
-    assert!(!raw_devices.is_empty(), "expected at least one device");
+            let memories = device.addressable_memories()?;
+            assert!(
+                memories.iter().any(|m| m.raw == default_memory),
+                "default memory should be part of addressable memories"
+            );
+            Ok(())
+        })
+    }
 
-    let device = &raw_devices[0];
-    let desc = device.description()?;
+    #[test]
+    fn device_debug_and_process_index_smoke() -> TestResult {
+        with_runtime_and_client(|_rt, client| {
+            let raw_devices = client.devices().map_err(|e| e.to_string())?;
+            assert!(!raw_devices.is_empty(), "expected at least one device");
 
-    assert!(desc.id()? >= 0, "description id should be non-negative");
-    assert!(
-        !desc.kind()?.is_empty(),
-        "description kind should be non-empty"
-    );
-    assert!(
-        !desc.to_string()?.is_empty(),
-        "description to_string should be non-empty"
-    );
-    Ok(())
-}
+            let device = &raw_devices[0];
+            let debug_string = device.debug_string()?;
+            let to_string = device.to_string()?;
+            let process_index = device.process_index()?;
 
-#[test]
-fn device_is_addressable_smoke() -> TestResult {
-    let Some(rt) = runtime_or_skip()? else {
-        return Ok(());
-    };
-
-    let client = rt.create_client()?;
-    let raw_devices = client.devices().map_err(|e| e.to_string())?;
-    assert!(!raw_devices.is_empty(), "expected at least one device");
-
-    let device = &raw_devices[0];
-    assert!(
-        device.is_addressable()?,
-        "first runtime device should be addressable"
-    );
-    Ok(())
-}
-
-#[test]
-fn device_default_memory_in_addressable_memories_smoke() -> TestResult {
-    let Some(rt) = runtime_or_skip()? else {
-        return Ok(());
-    };
-
-    let client = rt.create_client()?;
-    let raw_devices = client.devices().map_err(|e| e.to_string())?;
-    assert!(!raw_devices.is_empty(), "expected at least one device");
-
-    let device = &raw_devices[0];
-    let default_memory = device.default_memory()?;
-    assert!(
-        !default_memory.is_null(),
-        "default_memory should not be null"
-    );
-
-    let memories = device.addressable_memories()?;
-    assert!(
-        memories.iter().any(|m| m.raw == default_memory),
-        "default memory should be part of addressable memories"
-    );
-    Ok(())
-}
-
-#[test]
-fn device_debug_and_process_index_smoke() -> TestResult {
-    let Some(rt) = runtime_or_skip()? else {
-        return Ok(());
-    };
-
-    let client = rt.create_client()?;
-    let raw_devices = client.devices().map_err(|e| e.to_string())?;
-    assert!(!raw_devices.is_empty(), "expected at least one device");
-
-    let device = &raw_devices[0];
-    let debug_string = device.debug_string()?;
-    let to_string = device.to_string()?;
-    let process_index = device.process_index()?;
-
-    assert!(!debug_string.is_empty(), "debug_string should not be empty");
-    assert!(!to_string.is_empty(), "to_string should not be empty");
-    assert!(process_index >= 0, "process_index should be non-negative");
-    Ok(())
+            assert!(!debug_string.is_empty(), "debug_string should not be empty");
+            assert!(!to_string.is_empty(), "to_string should not be empty");
+            assert!(process_index >= 0, "process_index should be non-negative");
+            Ok(())
+        })
+    }
 }

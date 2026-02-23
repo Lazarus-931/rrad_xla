@@ -9,7 +9,7 @@ use crate::rrad_pjrt::host_to_device_manager::PjrtHtoDeviceManager;
 use crate::rrad_pjrt::loader::PjrtRuntime;
 use crate::rrad_pjrt::memory::PJRTMemory;
 use crate::rrad_pjrt::topology_desc::{PJRTNamedAttribute, PJRTTopologyDescription};
-use crate::rrad_pjrt::utils::{BufferFromHostOptions, PjrtShapeSpec, Shape};
+use crate::rrad_pjrt::utils::{BufferFromHostOptions, PJRTShapeSpec, Shape};
 use std::ffi::c_void;
 use std::ptr;
 use std::ptr::null_mut;
@@ -389,12 +389,12 @@ impl<'a> PJRTClient<'a> {
 
     pub fn create_buffers_for_async_host_to_device_specs(
         &self,
-        shape_specs: &[PjrtShapeSpec],
+        shape_specs: &[PJRTShapeSpec],
         device_layouts: &mut [*mut PJRT_Buffer_MemoryLayout],
         memory: Option<PJRTMemory<'a>>,
     ) -> Result<PjrtHtoDeviceManager<'a>, PJRTError<'a>> {
         let mut raw_specs: Vec<PJRT_ShapeSpec> =
-            shape_specs.iter().map(PjrtShapeSpec::to_raw).collect();
+            shape_specs.iter().map(PJRTShapeSpec::to_raw).collect();
 
         self.create_buffers_for_async_host_to_device(&mut raw_specs, device_layouts, memory)
     }

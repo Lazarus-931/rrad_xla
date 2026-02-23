@@ -7,6 +7,7 @@ use crate::rrad_pjrt::device::PJRTDevice;
 use crate::rrad_pjrt::error::PJRTError;
 use crate::rrad_pjrt::event::PJRTEvent;
 use crate::rrad_pjrt::loader::PjrtRuntime;
+use crate::rrad_pjrt::topology_desc::PJRTNamedValue;
 
 pub struct PjrtHtoDeviceManager<'a> {
     pub rt: &'a PjrtRuntime,
@@ -197,7 +198,6 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         Ok(buffer)
     }
 
-
     pub fn set_buffer_error(
         &self,
         buffer_index: i32,
@@ -216,6 +216,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
             })?;
 
         let error_message_bytes = error_message.as_bytes();
+
         let mut args = PJRT_AsyncHostToDeviceTransferManager_SetBufferError_Args {
             struct_size: PJRT_AsyncHostToDeviceTransferManager_SetBufferError_Args_STRUCT_SIZE
                 as usize,
@@ -232,6 +233,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         };
 
         let err = unsafe { f(&mut args) };
+
         if err.is_null() {
             Ok(())
         } else {

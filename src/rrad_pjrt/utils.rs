@@ -1,6 +1,4 @@
-use crate::pjrt_sys::{
-    PJRT_Buffer_MemoryLayout, PJRT_Buffer_Type, PJRT_ShapeSpec, PJRT_ShapeSpec_STRUCT_SIZE,
-};
+use crate::pjrt_sys::{PJRT_Buffer_MemoryLayout, PJRT_Buffer_Type, PJRT_NamedValue, PJRT_ShapeSpec, PJRT_ShapeSpec_STRUCT_SIZE};
 use crate::rrad_pjrt::device::PJRTDevice;
 use crate::rrad_pjrt::memory::PJRTMemory;
 use std::ptr;
@@ -11,12 +9,12 @@ pub struct Shape<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct PjrtShapeSpec {
+pub struct PJRTShapeSpec {
     dims: Vec<i64>,
     element_type: PJRT_Buffer_Type,
 }
 
-impl PjrtShapeSpec {
+impl PJRTShapeSpec {
     pub fn new(dims: impl Into<Vec<i64>>, element_type: PJRT_Buffer_Type) -> Self {
         Self {
             dims: dims.into(),

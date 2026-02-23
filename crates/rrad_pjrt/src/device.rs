@@ -91,10 +91,10 @@ impl<'a> PJRTDevice<'a> {
     }
 
     pub fn description(&self) -> Result<PJRTDeviceDescriptionRef<'a>, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let get_desc = self.rt.api().PJRT_Device_GetDescription.ok_or_else(|| {
-            self.error("PJRT_Device_GetDescription esymbol not found")
+            self.error("PJRT_Device_GetDescription symbol not found")
         })?;
 
         let mut get_desc_args = PJRT_Device_GetDescription_Args {
@@ -120,10 +120,10 @@ impl<'a> PJRTDevice<'a> {
     }
 
     pub fn is_addressable(&self) -> Result<bool, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self.rt.api().PJRT_Device_IsAddressable.ok_or_else(|| {
-            self.error("PJRT_Device_IsAddressable esymbol not found")
+            self.error("PJRT_Device_IsAddressable symbol not found")
         })?;
 
         let mut args = PJRT_Device_IsAddressable_Args {
@@ -142,10 +142,10 @@ impl<'a> PJRTDevice<'a> {
     }
 
     pub fn memory_stats(&self) -> Result<PJRTDeviceMemoryStats, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self.rt.api().PJRT_Device_MemoryStats.ok_or_else(|| {
-            self.error("PJRT_Device_MemoryStats esymbol not found")
+            self.error("PJRT_Device_MemoryStats symbol not found")
         })?;
 
         let mut args = PJRT_Device_MemoryStats_Args {
@@ -211,10 +211,10 @@ impl<'a> PJRTDevice<'a> {
         error_code: PJRT_Error_Code,
         error_message: &str,
     ) -> Result<bool, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self.rt.api().PJRT_Device_PoisonExecution.ok_or_else(|| {
-            self.error("PJRT_Device_PoisonExecution esymbol not found")
+            self.error("PJRT_Device_PoisonExecution symbol not found")
         })?;
 
         let error_message_bytes = error_message.as_bytes();
@@ -245,7 +245,7 @@ impl<'a> PJRTDevice<'a> {
         &self,
         description: &str,
     ) -> Result<PJRTAsyncTrackingEvent<'a>, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -282,10 +282,10 @@ impl<'a> PJRTDevice<'a> {
     }
 
     pub fn local_hardware_id(&self) -> Result<i32, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self.rt.api().PJRT_Device_LocalHardwareId.ok_or_else(|| {
-            self.error("PJRT_Device_LocalHardwareId esymbol not found")
+            self.error("PJRT_Device_LocalHardwareId symbol not found")
         })?;
 
         let mut args = PJRT_Device_LocalHardwareId_Args {
@@ -304,7 +304,7 @@ impl<'a> PJRTDevice<'a> {
     }
 
     pub fn addressable_memories(&self) -> Result<Vec<PJRTMemory<'a>>, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt

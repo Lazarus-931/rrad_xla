@@ -35,7 +35,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
         chunk: *mut PJRT_Chunk,
         transfer_complete: Option<*mut PJRT_Event>,
     ) -> Result<(), PJRTError<'a>> {
-        let stream = self.raw_checked().map_err(|e| e)?;
+        let stream = self.raw_checked()?;
         if chunk.is_null() {
             return Err(self
                 .error("PJRT_CopyToDeviceStream_AddChunk chunk is null")
@@ -68,7 +68,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
     }
 
     pub fn current_bytes(&self) -> Result<i64, PJRTError<'a>> {
-        let stream = self.raw_checked().map_err(|e| e)?;
+        let stream = self.raw_checked()?;
 
         let func = self
             .rt
@@ -95,7 +95,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
     }
 
     pub fn total_bytes(&self) -> Result<i64, PJRTError<'a>> {
-        let stream = self.raw_checked().map_err(|e| e)?;
+        let stream = self.raw_checked()?;
 
         let func = self
             .rt
@@ -122,7 +122,7 @@ impl<'a> PJRTCopyToDeviceStreamRef<'a> {
     }
 
     pub fn granule_size(&self) -> Result<i64, PJRTError<'a>> {
-        let stream = self.raw_checked().map_err(|e| e)?;
+        let stream = self.raw_checked()?;
 
         let func = self
             .rt

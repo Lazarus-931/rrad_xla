@@ -1,8 +1,10 @@
 # PJRT Functionality Tests
 
 
-These tests are meant to cover entire functionality of the PJRT loader 
-This folder is a contained-in-crate test suite for PJRT functionality & integration in rrad_pjrt. It is meant to cover ONLY he pjrt
-crate functionality and NOT integrations with other crates. It tests everything under the hood of the PJRT loader and
-CPU runtime.
+These tests are meant to cover end-to-end functionality of the rrad_pjrt crate. Within it there are tests for the PJRT
+loader and CPU runtime, testing, for example that the PJRT loader can load a PJRT module and execute it. It is broken up
+into binding-specific files, where a centralized test helper is used to load runtime and client for each test. 100% coverage
+is not guaranteed so far.
+
+A unified end-to-end test is available in `tests/unified.r`.
 

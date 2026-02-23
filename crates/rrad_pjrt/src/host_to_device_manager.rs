@@ -38,7 +38,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
     }
 
     pub fn add_metadata(&self, metadata: &[PJRT_NamedValue]) -> Result<(), PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -71,7 +71,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
     }
 
     pub fn buffer_count(&self) -> Result<usize, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -99,7 +99,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
     }
 
     pub fn buffer_size(&self, buffer_index: i32) -> Result<usize, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -127,7 +127,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
     }
 
     pub fn device(&self) -> Result<PJRTDevice<'a>, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -159,7 +159,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
     }
 
     pub fn retrieve_buffer(&self, buffer_index: i32) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -203,7 +203,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         error_code: PJRT_Error_Code,
         error_message: &str,
     ) -> Result<(), PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -247,7 +247,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         offset: i64,
         is_last_transfer: bool,
     ) -> Result<Option<PJRTEvent<'a>>, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
         if offset < 0 {
             return Err(self.error("transfer_data offset must be >= 0"));
         }
@@ -303,7 +303,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         shape_element_type: PJRT_Buffer_Type,
         shape_layout: Option<*mut PJRT_Buffer_MemoryLayout>,
     ) -> Result<Option<PJRTEvent<'a>>, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
         if data.is_null() {
             return Err(self.error("transfer_literal data is null"));
         }

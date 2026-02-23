@@ -151,10 +151,8 @@ impl<'a> PJRTEvent<'a> {
             .PJRT_Event_Set
             .ok_or_else(|| self.error("PJRT_Event_Set symbol not found"))?;
 
-        let error_code = error
-            .get_code()
-            .unwrap_or(PJRT_Error_Code_PJRT_Error_Code_UNKNOWN);
-        let error_message = error.message().unwrap_or_default();
+        let error_code = error.get_code()?;
+        let error_message = error.message()?;
         let error_message_bytes = error_message.as_bytes();
 
         let mut args = PJRT_Event_Set_Args {

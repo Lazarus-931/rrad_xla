@@ -32,9 +32,7 @@ impl<'a> PJRTCompiler<'a> {
         program: &PJRT_Program,
         compile_options: &[u8],
     ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
-        let client = self
-            .raw_checked()
-            .or_else(|_| Err(self.error("PJRT_Client is null")))?;
+        let client = self.raw_checked()?;
         let mut program_local = *program;
 
         if program_local.struct_size == 0 {
@@ -91,10 +89,10 @@ impl<'a> PJRTCompiler<'a> {
         compile_options: &[u8],
     ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
         if program_code.is_empty() {
-            return Err(self.error("program_code must not be empty")).into();
+            return Err(self.error("program_code must not be empty"));
         }
         if format.is_empty() {
-            return Err(self.error("format must not be empty")).into();
+            return Err(self.error("format must not be empty"));
         }
 
         let program = PJRT_Program {

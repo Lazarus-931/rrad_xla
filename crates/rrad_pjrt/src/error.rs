@@ -71,7 +71,7 @@ impl<'a> PJRTError<'a> {
             return Ok(msg.clone());
         }
 
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let func = self.rt.api().PJRT_Error_Message.ok_or_else(|| {
             PJRTError::invalid_arg(self.rt, "PJRT_Error_Message symbol not found")

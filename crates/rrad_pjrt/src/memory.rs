@@ -30,7 +30,7 @@ impl<'a> PJRTMemory<'a> {
     }
 
     pub fn id(&self) -> Result<usize, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let func = self
             .rt
@@ -54,7 +54,7 @@ impl<'a> PJRTMemory<'a> {
     }
 
     pub fn kind(&self) -> Result<String, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let func = self
             .rt
@@ -85,7 +85,7 @@ impl<'a> PJRTMemory<'a> {
     }
 
     pub fn kind_id(&self) -> Result<i32, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let func = self.rt.api().PJRT_Memory_Kind_Id.ok_or_else(|| {
             self.error("PJRT_Memory_Kind_Id symbol not found")
@@ -107,7 +107,7 @@ impl<'a> PJRTMemory<'a> {
     }
 
     pub fn debug_string(&self) -> Result<String, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let func = self.rt.api().PJRT_Memory_DebugString.ok_or_else(|| {
             self.error("PJRT_Memory_DebugString symbol not found")
@@ -137,7 +137,7 @@ impl<'a> PJRTMemory<'a> {
     }
 
     pub fn to_string(&self) -> Result<String, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let func = self.rt.api().PJRT_Memory_ToString.ok_or_else(|| {
             self.error("PJRT_Memory_ToString symbol not found")
@@ -166,7 +166,7 @@ impl<'a> PJRTMemory<'a> {
     }
 
     pub fn addressable_by_device(&self) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let func = self
             .rt

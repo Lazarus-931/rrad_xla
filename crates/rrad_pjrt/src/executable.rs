@@ -765,7 +765,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn num_replicas(&self) -> Result<usize, PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let f = self
             .rt
@@ -789,7 +789,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn num_partitions(&self) -> Result<usize, PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let f = self
             .rt
@@ -813,7 +813,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn destroy_executable_handle(&self) -> Result<(), PJRTError<'a>> {
-        let executable = self.executable().map_err(|e| e)?;
+        let executable = self.executable()?;
 
         let f = self
             .rt
@@ -836,7 +836,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn delete(&self) -> Result<(), PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -859,7 +859,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn is_deleted(&self) -> Result<bool, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -883,7 +883,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn output_element_types(&self) -> Result<Vec<PJRT_Buffer_Type>, PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let f = self
             .rt
@@ -918,7 +918,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn addressable_devices(&self) -> Result<Vec<*mut PJRT_Device>, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -989,7 +989,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn fingerprint(&self) -> Result<String, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -1025,7 +1025,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn executable_fingerprint(&self) -> Result<String, PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let f = self
             .rt
@@ -1064,7 +1064,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn size_of_generated_code_in_bytes(&self) -> Result<i64, PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let f = self
             .rt
@@ -1088,7 +1088,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn output_memory_kinds(&self) -> Result<Vec<String>, PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let f = self
             .rt
@@ -1143,7 +1143,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn device_assignment_serialized(&self) -> Result<Vec<u8>, PJRTError<'a>> {
-        let raw = self.raw_checked().map_err(|e| e)?;
+        let raw = self.raw_checked()?;
 
         let f = self
             .rt
@@ -1200,7 +1200,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn name(&self) -> Result<String, PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let f = self
             .rt
@@ -1232,7 +1232,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn get_compiled_memory_stats(&self) -> Result<Vec<i64>, PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let func = self
             .rt
@@ -1283,7 +1283,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn get_cost_analysis(&self) -> Result<String, PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let func = self
             .rt
@@ -1330,7 +1330,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn optimized_program(&self) -> Result<(), PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let func = self
             .rt
@@ -1355,7 +1355,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 
     pub fn output_dimension(&self) -> Result<i64, PJRTError<'a>> {
-        let exec = self.executable().map_err(|e| e)?;
+        let exec = self.executable()?;
 
         let func = self
             .rt

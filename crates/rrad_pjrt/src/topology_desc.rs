@@ -691,7 +691,6 @@ impl<'a> PJRTTopologyDescription<'a> {
             compile_options,
             overridden_compile_options,
         )
-        .map_err(|e| e)
     }
 }
 

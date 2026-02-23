@@ -5,7 +5,7 @@ mod event_bindings_tests {
 
     use super::super::setup::with_runtime_and_client;
     use super::super::tools::{runtime_or_skip, TestResult};
-    use rrad_pjrt::pjrt_sys::{
+    use rrad_pjrt::ffi::pjrt_sys::{
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Event_Destroy_Args,
         PJRT_Event_Destroy_Args_STRUCT_SIZE,
     };
@@ -70,7 +70,7 @@ mod event_bindings_tests {
     }
 
     unsafe extern "C" fn mark_event_ready(
-        _error: *mut rrad_pjrt::pjrt_sys::PJRT_Error,
+        _error: *mut rrad_pjrt::ffi::pjrt_sys::PJRT_Error,
         user_arg: *mut libc::c_void,
     ) {
         let flag = user_arg as *const AtomicBool;

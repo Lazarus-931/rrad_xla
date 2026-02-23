@@ -1,6 +1,6 @@
 use std::ptr;
 
-use crate::pjrt_sys::*;
+use crate::ffi::pjrt_sys::*;
 use crate::error::PJRTError;
 use crate::loader::PjrtRuntime;
 

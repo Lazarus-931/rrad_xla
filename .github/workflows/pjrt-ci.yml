@@ -42,12 +42,12 @@ jobs:
           git checkout FETCH_HEAD
 
       - name: Regenerate PJRT bindings from pinned XLA
-        run: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/pjrt_bindings.rs
+        run: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/ffi/pjrt_bindings.rs
 
       - name: Verify bindings are up to date
         run: |
-          if ! git diff --exit-code -- crates/rrad_pjrt/src/pjrt_bindings.rs; then
-            echo "::error::crates/rrad_pjrt/src/pjrt_bindings.rs is out of date. Run ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/pjrt_bindings.rs and commit the result."
+          if ! git diff --exit-code -- crates/rrad_pjrt/src/ffi/pjrt_bindings.rs crates/rrad_pjrt/PJRT_BINDING_DIFF.md; then
+            echo "::error::PJRT bindings outputs are out of date. Run ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/ffi/pjrt_bindings.rs and commit both crates/rrad_pjrt/src/ffi/pjrt_bindings.rs and crates/rrad_pjrt/PJRT_BINDING_DIFF.md."
             exit 1
           fi
 

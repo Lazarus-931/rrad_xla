@@ -5,7 +5,7 @@ mod execute_context_bindings_tests {
     // - execute-context interaction with explicit extension chain args (when added)
 
     use super::super::tools::{runtime_or_skip, TestResult};
-    use rrad_pjrt::pjrt_sys::{
+    use rrad_pjrt::ffi::pjrt_sys::{
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_ExecuteContext_Destroy_Args,
         PJRT_ExecuteContext_Destroy_Args_STRUCT_SIZE,
     };

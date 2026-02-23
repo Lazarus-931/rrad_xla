@@ -2,7 +2,7 @@
 mod client_bindings_tests {
     use super::super::setup::with_runtime_and_client;
     use super::super::tools::TestResult;
-    use rrad_pjrt::pjrt_sys::{
+    use rrad_pjrt::ffi::pjrt_sys::{
         PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Error_Code_PJRT_Error_Code_INVALID_ARGUMENT,
         PJRT_Error_Code_PJRT_Error_Code_OK,
         PJRT_HostBufferSemantics_PJRT_HostBufferSemantics_kImmutableOnlyDuringCall,

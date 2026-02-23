@@ -1,4 +1,4 @@
-use crate::pjrt_sys::{PJRT_Buffer_MemoryLayout, PJRT_Buffer_Type, PJRT_ShapeSpec, PJRT_ShapeSpec_STRUCT_SIZE};
+use crate::ffi::pjrt_sys::{PJRT_Buffer_MemoryLayout, PJRT_Buffer_Type, PJRT_ShapeSpec, PJRT_ShapeSpec_STRUCT_SIZE};
 use crate::device::PJRTDevice;
 use crate::memory::PJRTMemory;
 use std::ptr;

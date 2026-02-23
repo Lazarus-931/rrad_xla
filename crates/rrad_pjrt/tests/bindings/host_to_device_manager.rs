@@ -5,7 +5,7 @@ mod host_to_device_manager_bindings_tests {
 
     use super::super::setup::with_runtime_and_client;
     use super::super::tools::TestResult;
-    use rrad_pjrt::pjrt_sys::{PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Error_Code_PJRT_Error_Code_OK, PJRT_NamedValue, PJRT_NamedValue_STRUCT_SIZE, PJRT_NamedValue_Type_PJRT_NamedValue_kString, PJRT_NamedValue__bindgen_ty_1};
+    use rrad_pjrt::ffi::pjrt_sys::{PJRT_Buffer_Type_PJRT_Buffer_Type_F32, PJRT_Error_Code_PJRT_Error_Code_OK, PJRT_NamedValue, PJRT_NamedValue_STRUCT_SIZE, PJRT_NamedValue_Type_PJRT_NamedValue_kString, PJRT_NamedValue__bindgen_ty_1};
     use rrad_pjrt::client::PJRTClient;
     use rrad_pjrt::error::PJRTError;
     use rrad_pjrt::host_to_device_manager::PjrtHtoDeviceManager;

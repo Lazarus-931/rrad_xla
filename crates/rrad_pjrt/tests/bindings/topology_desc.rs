@@ -11,7 +11,7 @@ mod topology_desc_bindings_tests {
 
     use super::super::setup::with_runtime_and_client;
     use super::super::tools::TestResult;
-    use rrad_pjrt::pjrt_sys::{
+    use rrad_pjrt::ffi::pjrt_sys::{
         PJRT_Executable_Destroy_Args, PJRT_Executable_Destroy_Args_STRUCT_SIZE, PJRT_Program,
     };
     use rrad_pjrt::topology_desc::PJRTTopologyDescription;

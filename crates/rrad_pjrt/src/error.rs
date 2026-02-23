@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ptr::{null, null_mut};
 
-use crate::pjrt_sys::*;
+use crate::ffi::pjrt_sys::*;
 use crate::loader::PjrtRuntime;
 
 pub struct PJRTError<'a> {

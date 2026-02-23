@@ -14,11 +14,11 @@ Defaults:
     1) third_party/openxla/pjrt/pjrt_c_api.h
     2) expertnal_xla/pjrt_c_api.h.c
   output_path:
-    crates/rrad_pjrt/src/pjrt_bindings.rs
+    crates/rrad_pjrt/src/ffi/pjrt_bindings.rs
 
 Examples:
   ./gen_bindings.sh
-  ./gen_bindings.sh expertnal_xla/pjrt_c_api.h.c crates/rrad_pjrt/src/pjrt_bindings.rs
+  ./gen_bindings.sh expertnal_xla/pjrt_c_api.h.c crates/rrad_pjrt/src/ffi/pjrt_bindings.rs
 EOF
 }
 
@@ -63,7 +63,7 @@ resolve_header() {
 }
 
 HEADER_PATH="$(resolve_header "${1:-}")"
-OUT_PATH="${2:-${REPO_ROOT}/crates/rrad_pjrt/src/pjrt_bindings.rs}"
+OUT_PATH="${2:-${REPO_ROOT}/crates/rrad_pjrt/src/ffi/pjrt_bindings.rs}"
 
 mkdir -p "$(dirname "${OUT_PATH}")"
 
@@ -94,3 +94,5 @@ fi
 
 bindgen "${BINDGEN_ARGS[@]}" -- -x c -std=c11
 
+
+"${REPO_ROOT}/crates/rrad_pjrt/scripts/update_pjrt_binding_diff.sh" "${OUT_PATH}" "${REPO_ROOT}/crates/rrad_pjrt/PJRT_BINDING_DIFF.md"

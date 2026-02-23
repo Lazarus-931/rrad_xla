@@ -1,4 +1,4 @@
-use crate::pjrt_sys::*;
+use crate::ffi::pjrt_sys::*;
 use crate::buffer::PJRTBuffer;
 use crate::compile::PJRTCompiler;
 use crate::device::PJRTDevice;

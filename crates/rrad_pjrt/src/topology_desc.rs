@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use std::ptr;
 use std::slice::from_raw_parts;
-use crate::pjrt_sys::*;
+use crate::ffi::pjrt_sys::*;
 use crate::error::PJRTError;
 use crate::executable::PJRTLoadedExecutable;
 use crate::loader::PjrtRuntime;

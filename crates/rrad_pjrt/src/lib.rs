@@ -1,5 +1,3 @@
-pub mod pjrt_sys;
-
 pub mod buffer;
 pub mod client;
 pub mod compile;
@@ -14,4 +12,5 @@ pub mod loader;
 pub mod memory;
 pub mod topology_desc;
 pub mod utils;
+pub mod ffi;
 

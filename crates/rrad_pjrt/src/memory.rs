@@ -2,7 +2,7 @@ use std::ptr;
 use std::ptr::null_mut;
 use std::slice::from_raw_parts;
 
-use crate::pjrt_sys::*;
+use crate::ffi::pjrt_sys::*;
 use crate::device::PJRTDevice;
 use crate::error::PJRTError;
 use crate::loader::PjrtRuntime;

@@ -5,7 +5,7 @@ use std::ptr;
 use std::slice::from_raw_parts;
 use std::vec::Vec;
 
-use crate::pjrt_sys::*;
+use crate::ffi::pjrt_sys::*;
 use crate::client::PJRTClient;
 use crate::device::PJRTDevice;
 use crate::error::PJRTError;

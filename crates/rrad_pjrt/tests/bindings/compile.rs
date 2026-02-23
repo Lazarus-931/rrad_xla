@@ -5,7 +5,7 @@ mod compile_bindings_tests {
 
     use super::super::setup::with_runtime_and_client;
     use super::super::tools::TestResult;
-    use rrad_pjrt::pjrt_sys::PJRT_Program;
+    use rrad_pjrt::ffi::pjrt_sys::PJRT_Program;
     use std::ptr::null_mut;
 
     const MLIR_MODULE_ADD_ONE: &str = r#"module {

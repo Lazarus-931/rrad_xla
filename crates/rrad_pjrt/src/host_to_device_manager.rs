@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::ptr;
 
-use crate::pjrt_sys::*;
+use crate::ffi::pjrt_sys::*;
 use crate::buffer::PJRTBuffer;
 use crate::device::PJRTDevice;
 use crate::error::PJRTError;

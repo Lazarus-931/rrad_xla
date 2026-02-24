@@ -122,6 +122,18 @@ impl PjrtBindingError {
         })
     }
 
+    pub fn mismatched_struct_size<M: Into<String>>(expected_size: usize, actual_size: usize, api: &'static str) -> Self {
+        Self::struct_size_mismatch(
+            format!("expected struct size {} but got {} for {} ",
+                    expected_size,
+                    actual_size,
+                    api.to_string()),
+            expected_size,
+            actual_size,
+            api
+        )
+    }
+
     pub fn api_version_mismatch(major_version: i32, minor_version: i32) -> Self {
         Self::new(PjrtFfiError::ApiVersionMismatch {
             major_version,

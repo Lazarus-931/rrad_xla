@@ -5,21 +5,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${SCRIPT_DIR}"
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 Usage:
-  ./gen_bindings.sh [header_path] [output_path]
+  ./gen_bindings.sh [stable_header_path] [output_path] [latest_header_path]
 
 Defaults:
-  header_path:
+  stable_header_path:
     1) third_party/openxla/pjrt/pjrt_c_api.h
     2) expertnal_xla/pjrt_c_api.h.c
   output_path:
     crates/rrad_pjrt/src/ffi/pjrt_bindings.rs
+  latest_header_path:
+    optional; if omitted, stable header is used for both sides of diff
 
 Examples:
   ./gen_bindings.sh
-  ./gen_bindings.sh expertnal_xla/pjrt_c_api.h.c crates/rrad_pjrt/src/ffi/pjrt_bindings.rs
-EOF
+  ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/ffi/pjrt_bindings.rs xla_latest/xla/pjrt/c/pjrt_c_api.h
+USAGE
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
@@ -62,37 +64,62 @@ resolve_header() {
   exit 1
 }
 
-HEADER_PATH="$(resolve_header "${1:-}")"
+BINDGEN_HELP="$(bindgen --help 2>&1 || true)"
+
+run_bindgen() {
+  local header_path="$1"
+  local out_path="$2"
+
+  local -a args=(
+    "${header_path}"
+    --allowlist-type '^PJRT_.*'
+    --allowlist-function '^PJRT_.*'
+    --allowlist-var '^PJRT_.*'
+    --allowlist-type '^size_t$'
+    --ctypes-prefix libc
+    --use-core
+    --no-layout-tests
+    --output "${out_path}"
+  )
+
+  if grep -q -- "--generate-comments" <<<"${BINDGEN_HELP}"; then
+    args+=(--generate-comments)
+  fi
+
+  if grep -q -- "--formatter" <<<"${BINDGEN_HELP}"; then
+    args+=(--formatter prettyplease)
+  fi
+
+  bindgen "${args[@]}" -- -x c -std=c11
+}
+
+STABLE_HEADER_PATH="$(resolve_header "${1:-}")"
 OUT_PATH="${2:-${REPO_ROOT}/crates/rrad_pjrt/src/ffi/pjrt_bindings.rs}"
+LATEST_HEADER_PATH="${3:-}"
 
 mkdir -p "$(dirname "${OUT_PATH}")"
 
-echo "Generating bindings from: ${HEADER_PATH}"
-echo "Writing bindings to: ${OUT_PATH}"
+echo "Generating stable bindings from: ${STABLE_HEADER_PATH}"
+echo "Writing stable bindings to: ${OUT_PATH}"
+run_bindgen "${STABLE_HEADER_PATH}" "${OUT_PATH}"
 
-BINDGEN_HELP="$(bindgen --help 2>&1 || true)"
+latest_bindings_tmp=""
+if [[ -n "${LATEST_HEADER_PATH}" ]]; then
+  if [[ ! -f "${LATEST_HEADER_PATH}" ]]; then
+    echo "Error: latest header not found: ${LATEST_HEADER_PATH}" >&2
+    exit 1
+  fi
 
-BINDGEN_ARGS=(
-  "${HEADER_PATH}"
-  --allowlist-type '^PJRT_.*'
-  --allowlist-function '^PJRT_.*'
-  --allowlist-var '^PJRT_.*'
-  --allowlist-type '^size_t$'
-  --ctypes-prefix libc
-  --use-core
-  --no-layout-tests
-  --output "${OUT_PATH}"
-)
+  latest_bindings_tmp="$(mktemp)"
+  trap '[[ -n "${latest_bindings_tmp}" && -f "${latest_bindings_tmp}" ]] && rm -f "${latest_bindings_tmp}"' EXIT
 
-if grep -q -- "--generate-comments" <<<"${BINDGEN_HELP}"; then
-  BINDGEN_ARGS+=(--generate-comments)
+  echo "Generating latest comparison bindings from: ${LATEST_HEADER_PATH}"
+  run_bindgen "${LATEST_HEADER_PATH}" "${latest_bindings_tmp}"
+else
+  latest_bindings_tmp="${OUT_PATH}"
 fi
 
-if grep -q -- "--formatter" <<<"${BINDGEN_HELP}"; then
-  BINDGEN_ARGS+=(--formatter prettyplease)
-fi
-
-bindgen "${BINDGEN_ARGS[@]}" -- -x c -std=c11
-
-
-"${REPO_ROOT}/crates/rrad_pjrt/scripts/update_pjrt_binding_diff.sh" "${OUT_PATH}" "${REPO_ROOT}/crates/rrad_pjrt/PJRT_BINDING_DIFF.md"
+"${REPO_ROOT}/crates/rrad_pjrt/scripts/update_pjrt_binding_diff.sh" \
+  "${OUT_PATH}" \
+  "${latest_bindings_tmp}" \
+  "${REPO_ROOT}/crates/rrad_pjrt/PJRT_BINDING_DIFF.md"

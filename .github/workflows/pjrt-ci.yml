@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  # Keep this pinned to the XLA commit that matches your PJRT C API bindings.
+  # Keep this pinned to the XLA commit that matches your stable PJRT C API bindings.
   XLA_COMMIT: d69d52a2d9140a1dafe3d044ab4dba27eba528ae
 
 concurrency:
@@ -32,7 +32,7 @@ jobs:
       - name: Install bindgen CLI
         run: cargo install --locked bindgen-cli
 
-      - name: Fetch XLA (Pinned)
+      - name: Fetch XLA (Pinned Stable)
         run: |
           rm -rf xla
           git init xla
@@ -41,13 +41,32 @@ jobs:
           git fetch --depth 1 origin "${XLA_COMMIT}"
           git checkout FETCH_HEAD
 
-      - name: Regenerate PJRT bindings from pinned XLA
-        run: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/ffi/pjrt_bindings.rs
+      - name: Resolve and Fetch XLA (Latest)
+        id: latest
+        run: |
+          set -euo pipefail
+          latest="$(git ls-remote https://github.com/openxla/xla.git refs/heads/main | awk '{print $1}')"
+          echo "sha=${latest}" >> "${GITHUB_OUTPUT}"
 
-      - name: Verify bindings are up to date
+          rm -rf xla_latest
+          git init xla_latest
+          cd xla_latest
+          git remote add origin https://github.com/openxla/xla.git
+          git fetch --depth 1 origin "${latest}"
+          git checkout FETCH_HEAD
+
+      - name: Regenerate stable bindings and compare against latest header
+        run: |
+          ./gen_bindings.sh \
+            xla/xla/pjrt/c/pjrt_c_api.h \
+            crates/rrad_pjrt/src/ffi/pjrt_bindings.rs \
+            xla_latest/xla/pjrt/c/pjrt_c_api.h
+
+      - name: Verify bindings outputs are up to date
         run: |
           if ! git diff --exit-code -- crates/rrad_pjrt/src/ffi/pjrt_bindings.rs crates/rrad_pjrt/PJRT_BINDING_DIFF.md; then
-            echo "::error::PJRT bindings outputs are out of date. Run ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/ffi/pjrt_bindings.rs and commit both crates/rrad_pjrt/src/ffi/pjrt_bindings.rs and crates/rrad_pjrt/PJRT_BINDING_DIFF.md."
+            echo "::error::PJRT binding outputs are out of date. Regenerate with: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/ffi/pjrt_bindings.rs xla_latest/xla/pjrt/c/pjrt_c_api.h"
+            echo "::error::Stable pin: ${XLA_COMMIT}; Latest main: ${{ steps.latest.outputs.sha }}"
             exit 1
           fi
 
@@ -80,7 +99,7 @@ jobs:
 
   pjrt_loader_integration:
     name: PJRT Loader Integration (macOS)
-    runs-on: macos-14
+    runs-on: macos-15
     needs: rust_tests
     timeout-minutes: 180
     steps:
@@ -94,6 +113,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Install Bazelisk
         run: brew install bazelisk
@@ -147,4 +171,3 @@ jobs:
 
       - name: Run Rust PJRT CPU Runtime Test
         run: crates/rrad_pjrt/tests/scripts/run_pjrt_cpu_runtime_test.sh
-

@@ -29,10 +29,8 @@ impl PjrtRuntime {
             .map_err(|e| PjrtBindingError::failed_to_get_pjrt_api(e.to_string()))?;
 
         let api = unsafe { get_api() };
+        unsafe { validate_api_table(api)? };
 
-        if api.is_null() {
-            return Err(PjrtBindingError::new(PjrtFfiError::NullValueReturned{message: "GetPjrtApi returned null".to_string()}));
-        }
 
         let ver = unsafe { (*api).pjrt_api_version };
 
@@ -48,7 +46,7 @@ impl PjrtRuntime {
             ));
         }
 
-        if ver.minor_version <= PJRT_API_MINOR as i32 {
+        if ver.minor_version < PJRT_API_MINOR as i32 {
             eprintln!(
                 "warning: plugin minor {} is older than header minor {}",
                 ver.minor_version, PJRT_API_MINOR
@@ -305,3 +303,26 @@ fn decode_named_values<'a>(
     Ok(out)
 }
 
+fn require_fn<T>(name: &'static str, f: Option<T>) -> Result<(), PjrtBindingError> {
+    if f.is_none() {
+        return Err(PjrtBindingError::new(
+            PjrtFfiError::NullFunctionPointer { name },
+        ));
+    }
+    Ok(())
+}
+
+unsafe fn validate_api_table(api: *const PJRT_Api) -> Result<(), PjrtBindingError> {
+    if api.is_null() {
+        return Err(PjrtBindingError::null_value_returned("GetPjrtApi returned null"));
+    }
+    let a = &*api;
+
+    require_fn("PJRT_Client_Create", a.PJRT_Client_Create)?;
+    require_fn("PJRT_Client_Destroy", a.PJRT_Client_Destroy)?;
+    require_fn("PJRT_Client_Compile", a.PJRT_Client_Compile)?;
+    require_fn("PJRT_LoadedExecutable_Execute", a.PJRT_LoadedExecutable_Execute)?;
+    require_fn("PJRT_Buffer_Destroy", a.PJRT_Buffer_Destroy)?;
+    require_fn("PJRT_Event_Destroy", a.PJRT_Event_Destroy)?;
+    Ok(())
+}

@@ -11,6 +11,11 @@ pub struct PJRTError<'a> {
     pub local_message: Option<String>,
 }
 
+/// [`PJRTError`] is the wrapper level error implementation for rrad_pjrt. It focuses on
+/// preventing errors at wrappers/runtime, such as errors when calling and using [`crate::client::PJRTClient`] or
+/// [`crate::executable::PJRTExecutable`].
+
+
 impl<'a> PJRTError<'a> {
     pub fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_Error) -> Self {
         Self {

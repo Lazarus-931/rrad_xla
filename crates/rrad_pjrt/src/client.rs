@@ -17,8 +17,12 @@ pub struct PJRTClient<'a> {
     pub rt: &'a PjrtRuntime,
     pub raw: *mut PJRT_Client,
 }
+/// Client wrapper for [`crate::ffi::pjrt_sys::PJRT_Client`] which is the main part needed to
+/// interact with pjrt component such as [`crate::ffi::pjrt_sys::PJRT_Device`] or [`crate::ffi::pjrt_sys::PJRT_Buffer`].
 
+/// Handles the use of all components.
 impl<'a> PJRTClient<'a> {
+    /// Constructs local error definitions for client-related errors.
     pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
         PJRTError::invalid_arg(self.rt, msg)
     }
@@ -239,7 +243,7 @@ impl<'a> PJRTClient<'a> {
         }
     }
 
-    pub fn lookup_device(&'a self, id: i32) -> Result<PJRTDevice<'a>, PJRTError<'a>> {
+    pub fn lookup_device(&self, id: i32) -> Result<PJRTDevice<'a>, PJRTError<'a>> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -263,11 +267,7 @@ impl<'a> PJRTClient<'a> {
         if args.device.is_null() {
             return Err(self.error("PJRT_Client_LookupDevice returned null device"));
         }
-        let device = PJRTDevice {
-            rt: self.rt,
-            raw: args.device,
-        };
-        Ok(device)
+        Ok(PJRTDevice::new(self.rt, args.device))
     }
 
     pub fn lookup_addressable_device(
@@ -297,11 +297,7 @@ impl<'a> PJRTClient<'a> {
         if args.addressable_device.is_null() {
             return Err(self.error("PJRT_Client_LookupAddressableDevice returned null device"));
         }
-        let device = PJRTDevice {
-            rt: self.rt,
-            raw: args.addressable_device,
-        };
-        Ok(device)
+        Ok(PJRTDevice::new(self.rt, args.addressable_device))
     }
 
     pub fn addressable_memories(&self) -> Result<Vec<PJRTMemory<'a>>, PJRTError<'a>> {
@@ -544,10 +540,7 @@ impl<'a> PJRTClient<'a> {
         } else if args.buffer.is_null() {
             Err(self.error("PJRT_Client_CreateUninitializedBuffer returned null buffer"))
         } else {
-            Ok(PJRTBuffer {
-                rt: self.rt,
-                raw: args.buffer,
-            })
+            Ok(PJRTBuffer::new(self.rt, args.buffer))
         }
     }
 

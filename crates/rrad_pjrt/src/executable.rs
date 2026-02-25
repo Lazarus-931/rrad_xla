@@ -6,13 +6,16 @@ use crate::event::PJRTEvent;
 use crate::execute_context::PJRTExecuteContext;
 use crate::loader::PjrtRuntime;
 use std::{ptr, vec};
+use std::marker::PhantomData;
 use std::ptr::{null, null_mut};
 use std::slice::from_raw_parts;
 use std::sync::Mutex;
+use crate::client::PJRTClient;
 
 pub struct PJRTLoadedExecutable<'a> {
     pub rt: &'a PjrtRuntime,
     pub raw: *mut PJRT_LoadedExecutable,
+    _client: PhantomData<&'a PJRTClient<'a>>
 }
 
 pub struct CostAnalysisResult {
@@ -344,7 +347,7 @@ unsafe extern "C" fn recv_callback_trampoline(
 
 impl<'a> PJRTLoadedExecutable<'a> {
     pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_LoadedExecutable) -> Self {
-        Self { rt, raw }
+        Self { rt, raw, _client: PhantomData }
     }
 
     fn raw_checked(&self) -> Result<*mut PJRT_LoadedExecutable, PJRTError<'a>> {

@@ -189,10 +189,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
                 );
         }
 
-        let buffer = PJRTBuffer {
-            rt: self.rt,
-            raw: args.buffer_out,
-        };
+        let buffer = PJRTBuffer::new(self.rt, args.buffer_out);
 
         Ok(buffer)
     }

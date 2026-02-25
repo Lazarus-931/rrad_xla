@@ -1,3 +1,14 @@
+
+//! rrad_pjrt - a functional, simple and memory-safe binding for XLA's pjrt
+//!
+//! PJRT is the device api to XLA's (Accelerated Linear Algebra) which centralizes execution
+//! across frameworks and pieces of hardware, with an independent interface in mind.
+//!
+
+
+#[cfg(docsrs)]
+mod documentation;
+
 pub mod buffer;
 pub mod client;
 pub mod compile;

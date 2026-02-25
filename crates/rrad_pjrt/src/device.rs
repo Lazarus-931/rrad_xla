@@ -1,5 +1,6 @@
+use std::marker::PhantomData;
 use std::ptr;
-
+use crate::client::PJRTClient;
 use crate::ffi::pjrt_sys::*;
 use crate::error::PJRTError;
 use crate::loader::PjrtRuntime;
@@ -61,12 +62,17 @@ impl Drop for PJRTAsyncTrackingEvent<'_> {
 pub struct PJRTDevice<'a> {
     pub rt: &'a PjrtRuntime,
     pub raw: *mut PJRT_Device,
+    _client: PhantomData<&'a PJRTClient<'a>>,
 }
 
 
 impl<'a> PJRTDevice<'a> {
-    pub fn new(rt: &'a PjrtRuntime, raw_device: *mut PJRT_Device) -> Self {
-        Self { rt, raw: raw_device }
+    pub(crate) fn new(rt: &'a PjrtRuntime, raw_device: *mut PJRT_Device) -> Self {
+        Self {
+            rt,
+            raw: raw_device,
+            _client: PhantomData,
+        }
     }
     pub fn is_null(&self) -> bool {
         self.raw.is_null()
@@ -365,10 +371,7 @@ impl<'a> PJRTDevice<'a> {
             return Err(self
                 .error("PJRT_Device_DefaultMemory returned null memory"))
         }
-        let memory = PJRTMemory {
-            rt: self.rt,
-            raw: args.memory,
-        };
+        let memory = PJRTMemory::new(self.rt, args.memory);
         Ok(memory)
     }
 

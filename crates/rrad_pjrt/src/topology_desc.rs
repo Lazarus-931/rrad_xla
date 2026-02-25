@@ -1,7 +1,9 @@
 use std::fmt::{Debug, Formatter};
+use std::marker::PhantomData;
 use std::ptr;
 use std::slice::from_raw_parts;
 use crate::ffi::pjrt_sys::*;
+use crate::client::PJRTClient;
 use crate::error::PJRTError;
 use crate::executable::PJRTLoadedExecutable;
 use crate::loader::PjrtRuntime;
@@ -24,11 +26,16 @@ pub struct PJRTNamedAttribute {
 pub struct PJRTDeviceDescriptionRef<'a> {
     pub rt: &'a PjrtRuntime,
     pub raw: *mut PJRT_DeviceDescription,
+    _topology: PhantomData<&'a PJRTTopologyDescription<'a>>,
 }
 
 impl<'a> PJRTDeviceDescriptionRef<'a> {
     pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_DeviceDescription) -> Self {
-        Self { rt, raw }
+        Self {
+            rt,
+            raw,
+            _topology: PhantomData,
+        }
     }
 
     pub fn raw(&self) -> *mut PJRT_DeviceDescription {
@@ -187,11 +194,16 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
 pub struct PJRTTopologyDescription<'a> {
     rt: &'a PjrtRuntime,
     raw: *mut PJRT_TopologyDescription,
+    _client: PhantomData<&'a PJRTClient<'a>>,
 }
 
 impl<'a> PJRTTopologyDescription<'a> {
     pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_TopologyDescription) -> Self {
-        Self { rt, raw }
+        Self {
+            rt,
+            raw,
+            _client: PhantomData,
+        }
     }
 
     pub fn raw(&self) -> *mut PJRT_TopologyDescription {

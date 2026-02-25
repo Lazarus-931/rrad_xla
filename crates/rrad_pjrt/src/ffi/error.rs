@@ -6,6 +6,13 @@ pub struct PjrtBindingError {
     error_type: PjrtFfiError,
 }
 
+/// This is the error type returned by pjrt bindings and the pjrt crate. It covers major errors that
+/// such as api depreciation from xla lib as well as failed to load the api library. This is separate
+/// from the binding level error such as [`crate::error::PJRTError`], this is rather lower than that, and precedes it in fact.
+/// For example, [`PJRTLoader`](crate::loader::PjrtRuntime) uses PjrtBindingError but not [`crate::error::PJRTError`] since the loader establishes the
+/// api in the first place, which is needed for [`crate::error::PJRTError`].
+
+
 #[derive(Error, Debug)]
 pub enum PjrtFfiError {
     #[error("rrad_pjrt currently does not support {pjrt_c_api} this xla pjrt ffi api: {message}")]

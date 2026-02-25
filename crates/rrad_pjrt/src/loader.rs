@@ -46,12 +46,6 @@ impl PjrtRuntime {
             ));
         }
 
-        if ver.minor_version < PJRT_API_MINOR as i32 {
-            eprintln!(
-                "warning: plugin minor {} is older than header minor {}",
-                ver.minor_version, PJRT_API_MINOR
-            );
-        }
 
         Ok(Self { _lib: lib, api })
     }
@@ -174,9 +168,9 @@ impl PjrtRuntime {
 
     pub fn client_devices<'a>(
         &'a self,
-        client: *mut PJRT_Client,
+        raw_client: *mut PJRT_Client,
     ) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
-        if client.is_null() {
+        if raw_client.is_null() {
             return Err(PJRTError::invalid_arg(self, "PJRT_Client is null"));
         }
 
@@ -187,7 +181,7 @@ impl PjrtRuntime {
         let mut args = PJRT_Client_Devices_Args {
             struct_size: PJRT_Client_Devices_Args_STRUCT_SIZE as usize,
             extension_start: ptr::null_mut(),
-            client,
+            client: raw_client,
             devices: ptr::null(),
             num_devices: 0,
         };

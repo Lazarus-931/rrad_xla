@@ -1,7 +1,8 @@
+use std::marker::PhantomData;
 use std::ptr;
 use std::ptr::null_mut;
 use std::slice::from_raw_parts;
-
+use crate::client::PJRTClient;
 use crate::ffi::pjrt_sys::*;
 use crate::device::PJRTDevice;
 use crate::error::PJRTError;
@@ -10,11 +11,12 @@ use crate::loader::PjrtRuntime;
 pub struct PJRTMemory<'a> {
     pub rt: &'a PjrtRuntime,
     pub raw: *mut PJRT_Memory,
+    pub(crate) _client: PhantomData<&'a PJRTClient<'a>>,
 }
 
 impl<'a> PJRTMemory<'a> {
     pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_Memory) -> Self {
-        Self { rt, raw }
+        Self { rt, raw, _client: PhantomData }
     }
 
     pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {

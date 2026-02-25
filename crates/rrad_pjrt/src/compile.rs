@@ -1,18 +1,21 @@
+use std::marker::PhantomData;
 use crate::ffi::pjrt_sys::*;
 use crate::device::PJRTDevice;
 use crate::error::PJRTError;
 use crate::executable::PJRTLoadedExecutable;
 use crate::loader::PjrtRuntime;
 use std::ptr::null_mut;
+use crate::client::PJRTClient;
 
 pub struct PJRTCompiler<'a> {
-    rt: &'a PjrtRuntime,
-    raw: *mut PJRT_Client,
+    pub rt: &'a PjrtRuntime,
+    pub raw: *mut PJRT_Client,
+    _client: PhantomData<&'a PJRTClient<'a>>,
 }
 
 impl<'a> PJRTCompiler<'a> {
     pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_Client) -> Self {
-        Self { rt, raw }
+        Self { rt, raw, _client: PhantomData }
     }
 
     pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {

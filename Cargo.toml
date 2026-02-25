@@ -1,3 +1,15 @@
 [workspace]
-members = ["crates/rrad_pjrt"]
+members = [
+    "crates/rrad_pjrt",
+    "crates/rrad_mlir",
+    "crates/rrad_pjrt_runtime",
+    "crates/rrad_src"
+]
+
+
+
+[workspace.metadata]
+authors = ["Alazer Manakelew alazermanalewb@gmail.com"]
+edition = ["2026"]
+
 resolver = "2"

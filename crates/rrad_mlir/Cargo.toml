@@ -1,0 +1,15 @@
+[package]
+name = "rrad_mlir"
+version = "0.1.0"
+edition = "2021"
+description = "MLIR/StableHLO frontend surface for rrad_pjrt"
+license = "Apache-2.0"
+autobins = false
+
+[lib]
+name = "rrad_mlir"
+path = "src/lib.rs"
+
+[dependencies]
+rrad_pjrt = { path = "../rrad_pjrt" }
+thiserror = "2.0.18"

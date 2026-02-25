@@ -54,7 +54,7 @@ jobs:
 
       - name: Regenerate PJRT bindings
         if: steps.xla_sha.outputs.needs_update == 'true'
-        run: ./gen_bindings.sh xla/xla/pjrt/c/pjrt_c_api.h crates/rrad_pjrt/src/ffi/pjrt_bindings.rs
+        run: ./gen_bindings.sh xla/xla/rrad_pjrt_runtime/c/pjrt_c_api.h crates/rrad_pjrt/src/ffi/pjrt_bindings.rs
 
       - name: Update pinned XLA commit in CI workflow
         if: steps.xla_sha.outputs.needs_update == 'true'
@@ -89,7 +89,7 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           commit-message: "chore: refresh XLA pin and regenerate PJRT bindings"
-          branch: "chore/pjrt-bindings-refresh-${{ steps.xla_sha.outputs.latest }}"
+          branch: "chore/rrad_pjrt_runtime-bindings-refresh-${{ steps.xla_sha.outputs.latest }}"
           delete-branch: true
           title: "chore: refresh PJRT bindings from latest XLA"
           body: |

@@ -31,6 +31,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
+name = "pjrt"
+version = "0.1.0"
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -46,6 +50,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21b2ebcf727b7760c461f091f9f0f539b77b8e87f2fd88131e7f1b433b3cece4"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "rrad_mlir"
+version = "0.1.0"
+dependencies = [
+ "rrad_pjrt",
+ "thiserror",
 ]
 
 [[package]]
@@ -68,6 +80,10 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
+
+[[package]]
+name = "t"
+version = "0.1.0"
 
 [[package]]
 name = "thiserror"

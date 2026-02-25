@@ -10,7 +10,7 @@ env:
   XLA_COMMIT: d69d52a2d9140a1dafe3d044ab4dba27eba528ae
 
 concurrency:
-  group: pjrt-ci-${{ github.ref }}
+  group: rrad_pjrt_runtime-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:

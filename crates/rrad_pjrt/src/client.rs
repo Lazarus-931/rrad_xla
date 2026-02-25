@@ -18,7 +18,7 @@ pub struct PJRTClient<'rt> {
     pub raw: *mut PJRT_Client,
 }
 /// Client wrapper for [`crate::ffi::pjrt_sys::PJRT_Client`] which is the main part needed to
-/// interact with pjrt component such as [`crate::ffi::pjrt_sys::PJRT_Device`] or [`crate::ffi::pjrt_sys::PJRT_Buffer`].
+/// interact with rrad_pjrt_runtime component such as [`crate::ffi::pjrt_sys::PJRT_Device`] or [`crate::ffi::pjrt_sys::PJRT_Buffer`].
 
 /// Handles the use of all components.
 impl<'rt> PJRTClient<'rt> {

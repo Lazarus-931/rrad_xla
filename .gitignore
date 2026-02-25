@@ -24,3 +24,5 @@ CMakeCache.txt
 
 # Bazel output symlinks (if created in this repo root)
 /bazel-*
+/DO_NOT_PUSH/
+read.md

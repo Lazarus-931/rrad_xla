@@ -22,7 +22,7 @@ mod buffer_bindings_tests {
         test_body(&rt, client)
     }
 
-    fn make_test_buffer<'a>(client: &'a PJRTClient<'a>) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+    fn make_test_buffer<'a>(client: &'a PJRTClient<'a>) -> Result<PJRTBuffer<'a, 'a>, PJRTError<'a>> {
         let _device = client.lookup_addressable_device(0)?;
         let host = [1.0_f32, 2.0, 3.0, 4.0];
         client.buffer_from_host_slice_copy(

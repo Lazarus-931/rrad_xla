@@ -19,7 +19,7 @@ mod client_bindings_tests {
 
     fn first_addressable_device<'a>(
         client: &'a PJRTClient<'a>,
-    ) -> Result<PJRTDevice<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTDevice<'a, 'a>, PJRTError<'a>> {
         let devices = client.devices()?;
         let first = devices
             .first()

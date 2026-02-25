@@ -66,7 +66,7 @@ pub enum PjrtFfiError {
 }
 
 impl PjrtBindingError {
-    pub fn new(error_type: PjrtFfiError) -> Self {
+    pub(crate) fn new(error_type: PjrtFfiError) -> Self {
         Self { error_type }
     }
 

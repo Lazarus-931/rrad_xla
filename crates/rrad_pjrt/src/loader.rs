@@ -95,7 +95,7 @@ impl PjrtRuntime {
         decode_named_values(self, args.attributes, args.num_attributes)
     }
 
-    pub fn create_client<'a>(&'a self) -> Result<PJRTClient<'a>, PJRTError<'a>> {
+    pub fn create_client<'rt>(&'rt self) -> Result<PJRTClient<'rt>, PJRTError<'rt>> {
         let f = self
             .api()
             .PJRT_Client_Create
@@ -166,10 +166,10 @@ impl PjrtRuntime {
         ))
     }
 
-    pub fn client_devices<'a>(
-        &'a self,
+    pub fn client_devices<'rt, 'client>(
+        &'rt self,
         raw_client: *mut PJRT_Client,
-    ) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
+        ) -> Result<Vec<PJRTDevice<'rt, 'client>>, PJRTError<'rt>> {
         if raw_client.is_null() {
             return Err(PJRTError::invalid_arg(self, "PJRT_Client is null"));
         }

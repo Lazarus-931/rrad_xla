@@ -8,22 +8,22 @@ use crate::device::PJRTDevice;
 use crate::error::PJRTError;
 use crate::loader::PjrtRuntime;
 
-pub struct PJRTMemory<'a> {
-    pub rt: &'a PjrtRuntime,
+pub struct PJRTMemory<'rt, 'client> {
+    pub rt: &'rt PjrtRuntime,
     pub raw: *mut PJRT_Memory,
-    pub(crate) _client: PhantomData<&'a PJRTClient<'a>>,
+    pub(crate) _client: PhantomData<&'client PJRTClient<'rt>>,
 }
 
-impl<'a> PJRTMemory<'a> {
-    pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_Memory) -> Self {
+impl<'rt, 'client> PJRTMemory<'rt, 'client> {
+    pub(crate) fn new(rt: &'rt PjrtRuntime, raw: *mut PJRT_Memory) -> Self {
         Self { rt, raw, _client: PhantomData }
     }
 
-    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'rt> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_Memory, PJRTError<'a>> {
+    fn raw_checked(&self) -> Result<*mut PJRT_Memory, PJRTError<'rt>> {
         if self.raw.is_null() {
             Err(self.error("PJRT_Memory is null"))
         } else {
@@ -31,7 +31,7 @@ impl<'a> PJRTMemory<'a> {
         }
     }
 
-    pub fn id(&self) -> Result<usize, PJRTError<'a>> {
+    pub fn id(&self) -> Result<usize, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let func = self
@@ -55,7 +55,7 @@ impl<'a> PJRTMemory<'a> {
         }
     }
 
-    pub fn kind(&self) -> Result<String, PJRTError<'a>> {
+    pub fn kind(&self) -> Result<String, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let func = self
@@ -86,7 +86,7 @@ impl<'a> PJRTMemory<'a> {
         }
     }
 
-    pub fn kind_id(&self) -> Result<i32, PJRTError<'a>> {
+    pub fn kind_id(&self) -> Result<i32, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let func = self.rt.api().PJRT_Memory_Kind_Id.ok_or_else(|| {
@@ -108,7 +108,7 @@ impl<'a> PJRTMemory<'a> {
         }
     }
 
-    pub fn debug_string(&self) -> Result<String, PJRTError<'a>> {
+    pub fn debug_string(&self) -> Result<String, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let func = self.rt.api().PJRT_Memory_DebugString.ok_or_else(|| {
@@ -138,7 +138,7 @@ impl<'a> PJRTMemory<'a> {
         }
     }
 
-    pub fn to_string(&self) -> Result<String, PJRTError<'a>> {
+    pub fn to_string(&self) -> Result<String, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let func = self.rt.api().PJRT_Memory_ToString.ok_or_else(|| {
@@ -167,7 +167,7 @@ impl<'a> PJRTMemory<'a> {
         }
     }
 
-    pub fn addressable_by_device(&self) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
+    pub fn addressable_by_device(&self) -> Result<Vec<PJRTDevice<'rt, 'client>>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let func = self

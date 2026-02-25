@@ -17,3 +17,8 @@ api is pointer-heavy, and goal is to minimize or to abstract that.
 I think moving forward, there are some tests not fully done, which I do think are still important to have,
 but I think we have the main suits complete. I think the next milestone is getting pjrt api to properly
 sync throu fii to pjrt_c_api_h. A since end-to-end run would be nice.
+
+# V.0.0.0.3-alpha
+* Improved ownership, and more tests as well as organization of source code
+I think this version is more stable than the last one, with better binding 
+error handling as well as better CI automation

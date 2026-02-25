@@ -13,21 +13,21 @@ use crate::utils::{BufferFromHostOptions, PJRTShapeSpec, Shape};
 use std::ffi::c_void;
 use std::ptr;
 use std::ptr::null_mut;
-pub struct PJRTClient<'a> {
-    pub rt: &'a PjrtRuntime,
+pub struct PJRTClient<'rt> {
+    pub rt: &'rt PjrtRuntime,
     pub raw: *mut PJRT_Client,
 }
 /// Client wrapper for [`crate::ffi::pjrt_sys::PJRT_Client`] which is the main part needed to
 /// interact with pjrt component such as [`crate::ffi::pjrt_sys::PJRT_Device`] or [`crate::ffi::pjrt_sys::PJRT_Buffer`].
 
 /// Handles the use of all components.
-impl<'a> PJRTClient<'a> {
+impl<'rt> PJRTClient<'rt> {
     /// Constructs local error definitions for client-related errors.
-    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'rt> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    pub fn devices(&self) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
+    pub fn devices(&self) -> Result<Vec<PJRTDevice<'rt, '_>>, PJRTError<'rt>> {
         self.rt.client_devices(self.raw)
     }
 
@@ -35,7 +35,7 @@ impl<'a> PJRTClient<'a> {
         self.raw
     }
 
-    pub fn raw_checked(&self) -> Result<*mut PJRT_Client, PJRTError<'a>> {
+    pub fn raw_checked(&self) -> Result<*mut PJRT_Client, PJRTError<'rt>> {
         if self.raw.is_null() {
             Err(self.error("PJRT_Client is null"))
         } else {
@@ -43,7 +43,7 @@ impl<'a> PJRTClient<'a> {
         }
     }
 
-    pub fn compiler(&self) -> PJRTCompiler<'a> {
+    pub fn compiler(&self) -> PJRTCompiler<'rt, '_> {
         PJRTCompiler::new(self.rt, self.raw)
     }
 
@@ -52,7 +52,7 @@ impl<'a> PJRTClient<'a> {
         program_code: &str,
         format: &str,
         compile_options: &[u8],
-    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTLoadedExecutable<'rt, '_>, PJRTError<'rt>> {
         {
             let compiler = self.compiler();
             compiler.compile(program_code, format, compile_options)
@@ -64,7 +64,7 @@ impl<'a> PJRTClient<'a> {
         program: &PJRT_Program,
         compile_options: &[u8],
         overridden_compile_options: Option<&[u8]>,
-    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTLoadedExecutable<'rt, '_>, PJRTError<'rt>> {
         let client = self.raw_checked()?;
         let topology = self.topology_description()?;
         topology.compile_and_load(client, program, compile_options, overridden_compile_options)
@@ -76,7 +76,7 @@ impl<'a> PJRTClient<'a> {
         format: &str,
         compile_options: &[u8],
         overridden_compile_options: Option<&[u8]>,
-    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTLoadedExecutable<'rt, '_>, PJRTError<'rt>> {
         let client = self.raw_checked()?;
         let topology = self.topology_description()?;
         topology.compile_and_load_code(
@@ -88,7 +88,7 @@ impl<'a> PJRTClient<'a> {
         )
     }
 
-    pub fn topology_description(&self) -> Result<PJRTTopologyDescription<'a>, PJRTError<'a>> {
+    pub fn topology_description(&self) -> Result<PJRTTopologyDescription<'rt, '_>, PJRTError<'rt>> {
         if self.raw.is_null() {
             return Err(self.error("PJRT_Client is null"));
         }
@@ -117,11 +117,11 @@ impl<'a> PJRTClient<'a> {
         Ok(PJRTTopologyDescription::new(self.rt, args.topology))
     }
 
-    pub fn topology_platform_name(&self) -> Result<String, PJRTError<'a>> {
+    pub fn topology_platform_name(&self) -> Result<String, PJRTError<'rt>> {
         self.topology_description()?.platform_name()
     }
 
-    pub fn platform_version(&self) -> Result<String, PJRTError<'a>> {
+    pub fn platform_version(&self) -> Result<String, PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -160,7 +160,7 @@ impl<'a> PJRTClient<'a> {
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
 
-    pub fn topology_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
+    pub fn topology_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'rt>> {
         self.topology_description()?.attributes()
     }
 
@@ -170,7 +170,7 @@ impl<'a> PJRTClient<'a> {
         buffer: Option<*mut PJRT_Buffer>,
         status_code: PJRT_Error_Code,
         error_message: Option<&str>,
-    ) -> Result<(), PJRTError<'a>> {
+    ) -> Result<(), PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         if fulfill_alias_buffer_cb.is_null() {
@@ -219,7 +219,7 @@ impl<'a> PJRTClient<'a> {
         }
     }
 
-    pub fn process_index(&self) -> Result<i32, PJRTError<'a>> {
+    pub fn process_index(&self) -> Result<i32, PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -243,7 +243,7 @@ impl<'a> PJRTClient<'a> {
         }
     }
 
-    pub fn lookup_device(&self, id: i32) -> Result<PJRTDevice<'a>, PJRTError<'a>> {
+    pub fn lookup_device(&self, id: i32) -> Result<PJRTDevice<'rt, '_>, PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -271,9 +271,9 @@ impl<'a> PJRTClient<'a> {
     }
 
     pub fn lookup_addressable_device(
-        &'a self,
+        &self,
         local_hardware_id: i32,
-    ) -> Result<PJRTDevice<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTDevice<'rt, '_>, PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -300,7 +300,7 @@ impl<'a> PJRTClient<'a> {
         Ok(PJRTDevice::new(self.rt, args.addressable_device))
     }
 
-    pub fn addressable_memories(&self) -> Result<Vec<PJRTMemory<'a>>, PJRTError<'a>> {
+    pub fn addressable_memories(&self) -> Result<Vec<PJRTMemory<'rt, '_>>, PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -345,8 +345,8 @@ impl<'a> PJRTClient<'a> {
         &self,
         shape_specs: &mut [PJRT_ShapeSpec],
         device_layouts: &mut [*mut PJRT_Buffer_MemoryLayout],
-        memory: Option<PJRTMemory<'a>>,
-    ) -> Result<PjrtHtoDeviceManager<'a>, PJRTError<'a>> {
+        memory: Option<PJRTMemory<'rt, '_>>,
+    ) -> Result<PjrtHtoDeviceManager<'rt, '_>, PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let function = self
@@ -393,8 +393,8 @@ impl<'a> PJRTClient<'a> {
         &self,
         shape_specs: &[PJRTShapeSpec],
         device_layouts: &mut [*mut PJRT_Buffer_MemoryLayout],
-        memory: Option<PJRTMemory<'a>>,
-    ) -> Result<PjrtHtoDeviceManager<'a>, PJRTError<'a>> {
+        memory: Option<PJRTMemory<'rt, '_>>,
+    ) -> Result<PjrtHtoDeviceManager<'rt, '_>, PJRTError<'rt>> {
         let mut raw_specs: Vec<PJRT_ShapeSpec> =
             shape_specs.iter().map(PJRTShapeSpec::to_raw).collect();
 
@@ -405,8 +405,8 @@ impl<'a> PJRTClient<'a> {
         &self,
         host: &[T],
         shape: Shape<'_>,
-        opts: BufferFromHostOptions<'a>,
-    ) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+        opts: BufferFromHostOptions<'rt, '_, '_>,
+    ) -> Result<PJRTBuffer<'rt, '_>, PJRTError<'rt>> {
         if host.is_empty() {
             return Err(self.error("host slice must not be empty"));
         }
@@ -451,7 +451,7 @@ impl<'a> PJRTClient<'a> {
         Ok(buffer)
     }
 
-    pub fn dma_map(&self, data: *mut c_void, size: usize) -> Result<(), PJRTError<'a>> {
+    pub fn dma_map(&self, data: *mut c_void, size: usize) -> Result<(), PJRTError<'rt>> {
         let client = self.raw_checked()?;
         if size > 0 && data.is_null() {
             return Err(self.error("dma_map data pointer is null but size is nonzero"));
@@ -480,7 +480,7 @@ impl<'a> PJRTClient<'a> {
         }
     }
 
-    pub fn dma_unmap(&self, data: *mut c_void) -> Result<(), PJRTError<'a>> {
+    pub fn dma_unmap(&self, data: *mut c_void) -> Result<(), PJRTError<'rt>> {
         let client = self.raw_checked()?;
         if data.is_null() {
             return Err(self.error("dma_unmap data pointer is null"));
@@ -511,7 +511,7 @@ impl<'a> PJRTClient<'a> {
     pub fn create_uninitialized_buffer(
         &self,
         element_type: PJRT_Buffer_Type,
-    ) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTBuffer<'rt, '_>, PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let funct = self
@@ -549,15 +549,15 @@ impl<'a> PJRTClient<'a> {
         device_buffer_ptr: *mut c_void,
         dims: &[i64],
         element_type: PJRT_Buffer_Type,
-        device: Option<PJRTDevice<'a>>,
-        memory: Option<PJRTMemory<'a>>,
+        device: Option<PJRTDevice<'rt, '_>>,
+        memory: Option<PJRTMemory<'rt, '_>>,
         layout: Option<*mut PJRT_Buffer_MemoryLayout>,
         stream: isize,
         on_delete_callback: Option<
             unsafe extern "C" fn(device_buffer_ptr: *mut c_void, user_arg: *mut c_void),
         >,
         on_delete_callback_arg: *mut c_void,
-    ) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTBuffer<'rt, '_>, PJRTError<'rt>> {
         let client = self.raw_checked()?;
         if device_buffer_ptr.is_null() {
             return Err(self.error("device_buffer_ptr is null"));
@@ -633,10 +633,10 @@ impl<'a> PJRTClient<'a> {
         dims: &[i64],
         byte_strides: Option<&[i64]>,
         host_buffer_semantics: PJRT_HostBufferSemantics,
-        device: Option<PJRTDevice<'a>>,
-        memory: Option<PJRTMemory<'a>>,
+        device: Option<PJRTDevice<'rt, '_>>,
+        memory: Option<PJRTMemory<'rt, '_>>,
         device_layout: Option<*mut PJRT_Buffer_MemoryLayout>,
-    ) -> Result<(PJRTBuffer<'a>, Option<PJRTEvent<'a>>), PJRTError<'a>> {
+    ) -> Result<(PJRTBuffer<'rt, '_>, Option<PJRTEvent<'rt>>), PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         if data.is_null() {
@@ -736,9 +736,9 @@ impl<'a> PJRTClient<'a> {
         &self,
         shape_dims: &[i64],
         shape_element_type: PJRT_Buffer_Type,
-        memory: Option<PJRTMemory<'a>>,
+        memory: Option<PJRTMemory<'rt, '_>>,
         shape_layout: Option<*mut PJRT_Buffer_MemoryLayout>,
-    ) -> Result<(PJRTBuffer<'a>, *mut PJRT_FulfillAliasBufferCallback), PJRTError<'a>> {
+    ) -> Result<(PJRTBuffer<'rt, '_>, *mut PJRT_FulfillAliasBufferCallback), PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -796,9 +796,9 @@ impl<'a> PJRTClient<'a> {
         error_message: &str,
         shape_dims: &[i64],
         shape_element_type: PJRT_Buffer_Type,
-        memory: Option<PJRTMemory<'a>>,
+        memory: Option<PJRTMemory<'rt, '_>>,
         shape_layout: Option<*mut PJRT_Buffer_MemoryLayout>,
-    ) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTBuffer<'rt, '_>, PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -852,7 +852,7 @@ impl<'a> PJRTClient<'a> {
     pub fn update_global_process_info(
         &self,
         process_infos: &mut [PJRT_ProcessInfo],
-    ) -> Result<(), PJRTError<'a>> {
+    ) -> Result<(), PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let f = self
@@ -891,7 +891,7 @@ impl<'a> PJRTClient<'a> {
         &self,
         num_replicas: i32,
         num_partitions: i32,
-    ) -> Result<Vec<i32>, PJRTError<'a>> {
+    ) -> Result<Vec<i32>, PJRTError<'rt>> {
         if num_replicas < 0 || num_partitions < 0 {
             return Err(self.error("num_replicas and num_partitions must be >= 0"));
         }
@@ -948,8 +948,8 @@ impl<'a> PJRTClient<'a> {
         data: &[T],
         element_type: PJRT_Buffer_Type,
         dims: &[i64],
-        device: Option<PJRTDevice<'a>>,
-    ) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+        device: Option<PJRTDevice<'rt, '_>>,
+    ) -> Result<PJRTBuffer<'rt, '_>, PJRTError<'rt>> {
         let (buf, done) = self.buffer_from_host_buffer(
             data.as_ptr().cast::<c_void>(),
             element_type,
@@ -971,14 +971,14 @@ impl<'a> PJRTClient<'a> {
     }
 
     // destroy errors
-    pub fn close(self) -> Result<(), PJRTError<'a>> {
+    pub fn close(self) -> Result<(), PJRTError<'rt>> {
         let raw = self.raw;
         let rt = self.rt;
         std::mem::forget(self);
         rt.destroy_client(raw)
     }
 
-    pub fn platform_name(&self) -> Result<String, PJRTError<'a>> {
+    pub fn platform_name(&self) -> Result<String, PJRTError<'rt>> {
         let client = self.raw_checked()?;
 
         let platform = self

@@ -8,28 +8,29 @@ use crate::error::PJRTError;
 use crate::event::PJRTEvent;
 use crate::loader::PjrtRuntime;
 
-pub struct PjrtHtoDeviceManager<'a> {
-    pub rt: &'a PjrtRuntime,
+pub struct PjrtHtoDeviceManager<'rt, 'client> {
+    _client: std::marker::PhantomData<&'client crate::client::PJRTClient<'rt>>,
+    pub rt: &'rt PjrtRuntime,
     pub raw: *mut PJRT_AsyncHostToDeviceTransferManager,
 }
 
-impl<'a> PjrtHtoDeviceManager<'a> {
+impl<'rt, 'client> PjrtHtoDeviceManager<'rt, 'client> {
     pub(crate) fn new(
-        rt: &'a PjrtRuntime,
+        rt: &'rt PjrtRuntime,
         raw: *mut PJRT_AsyncHostToDeviceTransferManager,
     ) -> Self {
-        Self { rt, raw }
+        Self { rt, raw, _client: std::marker::PhantomData }
     }
 
     pub fn raw(&self) -> *mut PJRT_AsyncHostToDeviceTransferManager {
         self.raw
     }
 
-    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'rt> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_AsyncHostToDeviceTransferManager, PJRTError<'a>> {
+    fn raw_checked(&self) -> Result<*mut PJRT_AsyncHostToDeviceTransferManager, PJRTError<'rt>> {
         if self.raw.is_null() {
             Err(self.error("PJRT_AsyncHostToDeviceTransferManager is null"))
         } else {
@@ -37,7 +38,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         }
     }
 
-    pub fn add_metadata(&self, metadata: &[PJRT_NamedValue]) -> Result<(), PJRTError<'a>> {
+    pub fn add_metadata(&self, metadata: &[PJRT_NamedValue]) -> Result<(), PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -70,7 +71,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         }
     }
 
-    pub fn buffer_count(&self) -> Result<usize, PJRTError<'a>> {
+    pub fn buffer_count(&self) -> Result<usize, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -98,7 +99,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         }
     }
 
-    pub fn buffer_size(&self, buffer_index: i32) -> Result<usize, PJRTError<'a>> {
+    pub fn buffer_size(&self, buffer_index: i32) -> Result<usize, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -126,7 +127,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         }
     }
 
-    pub fn device(&self) -> Result<PJRTDevice<'a>, PJRTError<'a>> {
+    pub fn device(&self) -> Result<PJRTDevice<'rt, 'client>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -158,7 +159,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         Ok(PJRTDevice::new(self.rt, args.device_out))
     }
 
-    pub fn retrieve_buffer(&self, buffer_index: i32) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+    pub fn retrieve_buffer(&self, buffer_index: i32) -> Result<PJRTBuffer<'rt, 'client>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -199,7 +200,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         buffer_index: i32,
         error_code: PJRT_Error_Code,
         error_message: &str,
-    ) -> Result<(), PJRTError<'a>> {
+    ) -> Result<(), PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -243,7 +244,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         data: &[u8],
         offset: i64,
         is_last_transfer: bool,
-    ) -> Result<Option<PJRTEvent<'a>>, PJRTError<'a>> {
+    ) -> Result<Option<PJRTEvent<'rt>>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         if offset < 0 {
             return Err(self.error("transfer_data offset must be >= 0"));
@@ -299,7 +300,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
         shape_dims: &[i64],
         shape_element_type: PJRT_Buffer_Type,
         shape_layout: Option<*mut PJRT_Buffer_MemoryLayout>,
-    ) -> Result<Option<PJRTEvent<'a>>, PJRTError<'a>> {
+    ) -> Result<Option<PJRTEvent<'rt>>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         if data.is_null() {
             return Err(self.error("transfer_literal data is null"));
@@ -345,7 +346,7 @@ impl<'a> PjrtHtoDeviceManager<'a> {
     }
 }
 
-impl Drop for PjrtHtoDeviceManager<'_> {
+impl Drop for PjrtHtoDeviceManager<'_, '_> {
     fn drop(&mut self) {
         if self.raw.is_null() {
             return;

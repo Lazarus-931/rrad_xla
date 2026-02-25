@@ -12,10 +12,10 @@ use std::slice::from_raw_parts;
 use std::sync::Mutex;
 use crate::client::PJRTClient;
 
-pub struct PJRTLoadedExecutable<'a> {
-    pub rt: &'a PjrtRuntime,
+pub struct PJRTLoadedExecutable<'rt, 'client> {
+    pub rt: &'rt PjrtRuntime,
     pub raw: *mut PJRT_LoadedExecutable,
-    _client: PhantomData<&'a PJRTClient<'a>>
+    _client: PhantomData<&'client PJRTClient<'rt>>
 }
 
 pub struct CostAnalysisResult {
@@ -23,8 +23,8 @@ pub struct CostAnalysisResult {
 }
 
 // Back-compat with the original name in this crate.
-pub struct PJRTExecutable<'a> {
-    pub rt: &'a PjrtRuntime,
+pub struct PJRTExecutable<'rt> {
+    pub rt: &'rt PjrtRuntime,
     pub raw: *mut PJRT_Executable,
 }
 
@@ -49,8 +49,8 @@ pub struct OutputShape {
 }
 
 #[derive(Clone, Copy)]
-pub struct PJRTExecuteRunOptions<'a> {
-    pub execute_context: Option<&'a PJRTExecuteContext<'a>>,
+pub struct PJRTExecuteRunOptions<'a, 'rt> {
+    pub execute_context: Option<&'a PJRTExecuteContext<'rt>>,
     pub launch_id: i32,
     pub non_donatable_input_indices: &'a [i64],
     pub execute_device: Option<*mut PJRT_Device>,
@@ -60,7 +60,7 @@ pub struct PJRTExecuteRunOptions<'a> {
     pub recv_callbacks: &'a [PJRTRecvCallbackRegistration],
 }
 
-impl Default for PJRTExecuteRunOptions<'_> {
+impl<'rt> Default for PJRTExecuteRunOptions<'_, 'rt> {
     fn default() -> Self {
         Self {
             execute_context: None,
@@ -209,7 +209,7 @@ pub struct ExecuteCallbackKeepalive {
 }
 
 impl ExecuteCallbackKeepalive {
-    fn new(options: &PJRTExecuteRunOptions<'_>) -> Self {
+    fn new<'rt>(options: &PJRTExecuteRunOptions<'_, 'rt>) -> Self {
         let send_states: Vec<Box<SendCallbackState>> = options
             .send_callbacks
             .iter()
@@ -345,12 +345,12 @@ unsafe extern "C" fn recv_callback_trampoline(
     }
 }
 
-impl<'a> PJRTLoadedExecutable<'a> {
-    pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_LoadedExecutable) -> Self {
+impl<'rt, 'client> PJRTLoadedExecutable<'rt, 'client> {
+    pub(crate) fn new(rt: &'rt PjrtRuntime, raw: *mut PJRT_LoadedExecutable) -> Self {
         Self { rt, raw, _client: PhantomData }
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_LoadedExecutable, PJRTError<'a>> {
+    fn raw_checked(&self) -> Result<*mut PJRT_LoadedExecutable, PJRTError<'rt>> {
         if self.raw.is_null() {
             Err(self.error("PJRT_LoadedExecutable is null"))
         } else {
@@ -358,11 +358,11 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'rt> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    fn executable(&self) -> Result<*mut PJRT_Executable, PJRTError<'a>> {
+    fn executable(&self) -> Result<*mut PJRT_Executable, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -388,7 +388,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(args.executable)
     }
 
-    pub fn serialize(&self) -> Result<Vec<u8>, PJRTError<'a>> {
+    pub fn serialize(&self) -> Result<Vec<u8>, PJRTError<'rt>> {
         let executable = self.executable()?;
         let func = self
             .rt
@@ -447,7 +447,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         client: *mut PJRT_Client,
         serialized_executable: &[u8],
         overridden_compile_options: Option<&[u8]>,
-    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTLoadedExecutable<'rt, 'client>, PJRTError<'rt>> {
         if client.is_null() {
             return Err(self.error("client must not be null"));
         }
@@ -494,7 +494,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(PJRTLoadedExecutable::new(self.rt, args.loaded_executable))
     }
 
-    pub fn get_compile_options(&self) -> Result<Vec<u8>, PJRTError<'a>> {
+    pub fn get_compile_options(&self) -> Result<Vec<u8>, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let f = self
@@ -550,7 +550,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         result
     }
 
-    fn num_outputs(&self) -> Result<usize, PJRTError<'a>> {
+    fn num_outputs(&self) -> Result<usize, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let f = self
@@ -576,17 +576,17 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
     pub fn execute(
         &self,
-        arguments: &[&PJRTBuffer<'a>],
-    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), PJRTError<'a>> {
+        arguments: &[&PJRTBuffer<'rt, 'client>],
+    ) -> Result<(Vec<PJRTBuffer<'rt, 'client>>, PJRTEvent<'rt>), PJRTError<'rt>> {
         self.execute_with_execute_options(arguments, PJRTExecuteRunOptions::default())
             .map_err(|e| e)
     }
 
     pub fn execute_with_execute_options(
         &self,
-        arguments: &[&PJRTBuffer<'a>],
-        options: PJRTExecuteRunOptions<'a>,
-    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), PJRTError<'a>> {
+        arguments: &[&PJRTBuffer<'rt, 'client>],
+        options: PJRTExecuteRunOptions<'_, 'rt>,
+    ) -> Result<(Vec<PJRTBuffer<'rt, 'client>>, PJRTEvent<'rt>), PJRTError<'rt>> {
         let raw_executable = self.raw_checked()?;
         let num_outputs = self.num_outputs()?;
 
@@ -755,16 +755,16 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
     pub fn execute_with_options(
         &self,
-        arguments: &[&PJRTBuffer<'a>],
-        execute_context: Option<&'a PJRTExecuteContext<'a>>,
+        arguments: &[&PJRTBuffer<'rt, 'client>],
+        execute_context: Option<&PJRTExecuteContext<'rt>>,
         num_send_ops: usize,
         num_recv_ops: usize,
         launch_id: i32,
-        non_donatable_input_indices: &'a [i64],
+        non_donatable_input_indices: &[i64],
         execute_device: *mut PJRT_Device,
-        send_callbacks: &'a [PJRTSendCallbackRegistration],
-        recv_callbacks: &'a [PJRTRecvCallbackRegistration],
-    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), PJRTError<'a>> {
+        send_callbacks: &[PJRTSendCallbackRegistration],
+        recv_callbacks: &[PJRTRecvCallbackRegistration],
+    ) -> Result<(Vec<PJRTBuffer<'rt, 'client>>, PJRTEvent<'rt>), PJRTError<'rt>> {
         let options = PJRTExecuteRunOptions {
             execute_context,
             launch_id,
@@ -784,9 +784,9 @@ impl<'a> PJRTLoadedExecutable<'a> {
 
     pub fn execute_with_context(
         &self,
-        arguments: &[&PJRTBuffer<'a>],
-        execute_context: Option<&'a PJRTExecuteContext<'a>>,
-    ) -> Result<(Vec<PJRTBuffer<'a>>, PJRTEvent<'a>), PJRTError<'a>> {
+        arguments: &[&PJRTBuffer<'rt, 'client>],
+        execute_context: Option<&PJRTExecuteContext<'rt>>,
+    ) -> Result<(Vec<PJRTBuffer<'rt, 'client>>, PJRTEvent<'rt>), PJRTError<'rt>> {
         let options = PJRTExecuteRunOptions {
             execute_context,
             ..Default::default()
@@ -794,7 +794,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         self.execute_with_execute_options(arguments, options)
     }
 
-    pub fn num_replicas(&self) -> Result<usize, PJRTError<'a>> {
+    pub fn num_replicas(&self) -> Result<usize, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let f = self
@@ -818,7 +818,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn num_partitions(&self) -> Result<usize, PJRTError<'a>> {
+    pub fn num_partitions(&self) -> Result<usize, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let f = self
@@ -842,7 +842,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn destroy_executable_handle(&self) -> Result<(), PJRTError<'a>> {
+    pub fn destroy_executable_handle(&self) -> Result<(), PJRTError<'rt>> {
         let executable = self.executable()?;
 
         let f = self
@@ -865,7 +865,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn delete(&self) -> Result<(), PJRTError<'a>> {
+    pub fn delete(&self) -> Result<(), PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -888,7 +888,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn is_deleted(&self) -> Result<bool, PJRTError<'a>> {
+    pub fn is_deleted(&self) -> Result<bool, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -912,7 +912,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn output_element_types(&self) -> Result<Vec<PJRT_Buffer_Type>, PJRTError<'a>> {
+    pub fn output_element_types(&self) -> Result<Vec<PJRT_Buffer_Type>, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let f = self
@@ -947,7 +947,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(output_types)
     }
 
-    pub fn addressable_devices(&self) -> Result<Vec<*mut PJRT_Device>, PJRTError<'a>> {
+    pub fn addressable_devices(&self) -> Result<Vec<*mut PJRT_Device>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -982,7 +982,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(devices.to_vec())
     }
 
-    pub fn addressable_device_refs(&self) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
+    pub fn addressable_device_refs(&self) -> Result<Vec<PJRTDevice<'rt, 'client>>, PJRTError<'rt>> {
         Ok(self
             .addressable_devices()?
             .into_iter()
@@ -990,35 +990,35 @@ impl<'a> PJRTLoadedExecutable<'a> {
             .collect())
     }
 
-    pub fn addressable_device_ids(&self) -> Result<Vec<i32>, PJRTError<'a>> {
+    pub fn addressable_device_ids(&self) -> Result<Vec<i32>, PJRTError<'rt>> {
         self.addressable_device_refs()?
             .iter()
             .map(PJRTDevice::id)
             .collect()
     }
 
-    pub fn addressable_device_kinds(&self) -> Result<Vec<String>, PJRTError<'a>> {
+    pub fn addressable_device_kinds(&self) -> Result<Vec<String>, PJRTError<'rt>> {
         self.addressable_device_refs()?
             .iter()
             .map(PJRTDevice::kind)
             .collect()
     }
 
-    pub fn addressable_device_process_indices(&self) -> Result<Vec<i32>, PJRTError<'a>> {
+    pub fn addressable_device_process_indices(&self) -> Result<Vec<i32>, PJRTError<'rt>> {
         self.addressable_device_refs()?
             .iter()
             .map(PJRTDevice::process_index)
             .collect()
     }
 
-    pub fn addressable_device_debug_strings(&self) -> Result<Vec<String>, PJRTError<'a>> {
+    pub fn addressable_device_debug_strings(&self) -> Result<Vec<String>, PJRTError<'rt>> {
         self.addressable_device_refs()?
             .iter()
             .map(PJRTDevice::debug_string)
             .collect()
     }
 
-    pub fn fingerprint(&self) -> Result<String, PJRTError<'a>> {
+    pub fn fingerprint(&self) -> Result<String, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -1054,7 +1054,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
 
-    pub fn executable_fingerprint(&self) -> Result<String, PJRTError<'a>> {
+    pub fn executable_fingerprint(&self) -> Result<String, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let f = self
@@ -1093,7 +1093,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
 
-    pub fn size_of_generated_code_in_bytes(&self) -> Result<i64, PJRTError<'a>> {
+    pub fn size_of_generated_code_in_bytes(&self) -> Result<i64, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let f = self
@@ -1117,7 +1117,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn output_memory_kinds(&self) -> Result<Vec<String>, PJRTError<'a>> {
+    pub fn output_memory_kinds(&self) -> Result<Vec<String>, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let f = self
@@ -1172,7 +1172,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(out)
     }
 
-    pub fn device_assignment_serialized(&self) -> Result<Vec<u8>, PJRTError<'a>> {
+    pub fn device_assignment_serialized(&self) -> Result<Vec<u8>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -1229,7 +1229,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         result
     }
 
-    pub fn name(&self) -> Result<String, PJRTError<'a>> {
+    pub fn name(&self) -> Result<String, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let f = self
@@ -1261,7 +1261,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
 
-    pub fn get_compiled_memory_stats(&self) -> Result<CompiledMemoryStats, PJRTError<'a>> {
+    pub fn get_compiled_memory_stats(&self) -> Result<CompiledMemoryStats, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let func = self
@@ -1312,7 +1312,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn get_cost_analysis(&self) -> Result<CostAnalysisResult, PJRTError<'a>> {
+    pub fn get_cost_analysis(&self) -> Result<CostAnalysisResult, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let func = self
@@ -1364,7 +1364,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn optimized_program(&self) -> Result<(), PJRTError<'a>> {
+    pub fn optimized_program(&self) -> Result<(), PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let func = self
@@ -1389,7 +1389,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
         }
     }
 
-    pub fn output_dimensions(&self) -> Result<OutputShape, PJRTError<'a>> {
+    pub fn output_dimensions(&self) -> Result<OutputShape, PJRTError<'rt>> {
         let exec = self.executable()?;
 
         let func = self
@@ -1433,7 +1433,7 @@ impl<'a> PJRTLoadedExecutable<'a> {
     }
 }
 
-impl Drop for PJRTLoadedExecutable<'_> {
+impl Drop for PJRTLoadedExecutable<'_, '_> {
     fn drop(&mut self) {
         if self.raw.is_null() {
             return;

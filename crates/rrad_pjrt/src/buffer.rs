@@ -12,14 +12,14 @@ use crate::loader::PjrtRuntime;
 use crate::memory::PJRTMemory;
 use crate::topology_desc::PJRTNamedAttribute;
 
-pub struct PJRTBuffer<'a> {
-    pub rt: &'a PjrtRuntime,
+pub struct PJRTBuffer<'rt, 'client> {
+    pub rt: &'rt PjrtRuntime,
     pub raw: *mut PJRT_Buffer,
-    _client: PhantomData<&'a PJRTClient<'a>>
+    _client: PhantomData<&'client PJRTClient<'rt>>
 }
 
-impl<'a> PJRTBuffer<'a> {
-    pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_Buffer) -> Self {
+impl<'rt, 'client> PJRTBuffer<'rt, 'client> {
+    pub(crate) fn new(rt: &'rt PjrtRuntime, raw: *mut PJRT_Buffer) -> Self {
         Self { rt, raw, _client: PhantomData }
     }
 
@@ -27,11 +27,11 @@ impl<'a> PJRTBuffer<'a> {
         self.raw
     }
 
-    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'rt> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_Buffer, PJRTError<'a>> {
+    fn raw_checked(&self) -> Result<*mut PJRT_Buffer, PJRTError<'rt>> {
         if self.raw.is_null() {
             Err(self.error("PJRTBuffer is null"))
         } else {
@@ -39,7 +39,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn delete(&self) -> Result<(), PJRTError<'a>> {
+    pub fn delete(&self) -> Result<(), PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -62,7 +62,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn is_deleted(&self) -> Result<bool, PJRTError<'a>> {
+    pub fn is_deleted(&self) -> Result<bool, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -86,7 +86,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn element_type(&self) -> Result<PJRT_Buffer_Type, PJRTError<'a>> {
+    pub fn element_type(&self) -> Result<PJRT_Buffer_Type, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -110,7 +110,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn dimensions(&self) -> Result<Vec<i64>, PJRTError<'a>> {
+    pub fn dimensions(&self) -> Result<Vec<i64>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -143,7 +143,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(unsafe { from_raw_parts(args.dims, args.num_dims).to_vec() })
     }
 
-    pub fn unpadded_dimensions(&self) -> Result<Vec<i64>, PJRTError<'a>> {
+    pub fn unpadded_dimensions(&self) -> Result<Vec<i64>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -176,7 +176,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(unsafe { from_raw_parts(args.unpadded_dims, args.num_dims).to_vec() })
     }
 
-    pub fn dynamic_dimension_indices(&self) -> Result<Vec<usize>, PJRTError<'a>> {
+    pub fn dynamic_dimension_indices(&self) -> Result<Vec<usize>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -211,7 +211,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(unsafe { from_raw_parts(args.dynamic_dim_indices, args.num_dynamic_dims).to_vec() })
     }
 
-    pub fn device(&self) -> Result<PJRTDevice<'a>, PJRTError<'a>> {
+    pub fn device(&self) -> Result<PJRTDevice<'rt, 'client>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -239,27 +239,27 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn device_id(&self) -> Result<i32, PJRTError<'a>> {
+    pub fn device_id(&self) -> Result<i32, PJRTError<'rt>> {
         self.device()?.id()
     }
 
-    pub fn device_kind(&self) -> Result<String, PJRTError<'a>> {
+    pub fn device_kind(&self) -> Result<String, PJRTError<'rt>> {
         self.device()?.kind()
     }
 
-    pub fn device_process_index(&self) -> Result<i32, PJRTError<'a>> {
+    pub fn device_process_index(&self) -> Result<i32, PJRTError<'rt>> {
         self.device()?.process_index()
     }
 
-    pub fn device_debug_string(&self) -> Result<String, PJRTError<'a>> {
+    pub fn device_debug_string(&self) -> Result<String, PJRTError<'rt>> {
         self.device()?.debug_string()
     }
 
-    pub fn device_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
+    pub fn device_attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'rt>> {
         self.device()?.attributes()
     }
 
-    pub fn on_device_size_in_bytes(&self) -> Result<usize, PJRTError<'a>> {
+    pub fn on_device_size_in_bytes(&self) -> Result<usize, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -283,7 +283,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn get_memory_layout(&self) -> Result<PJRT_Buffer_MemoryLayout, PJRTError<'a>> {
+    pub fn get_memory_layout(&self) -> Result<PJRT_Buffer_MemoryLayout, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -307,7 +307,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn ready_event(&self) -> Result<PJRTEvent<'a>, PJRTError<'a>> {
+    pub fn ready_event(&self) -> Result<PJRTEvent<'rt>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -334,7 +334,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(PJRTEvent::new(self.rt, args.event))
     }
 
-    pub fn to_host_buffer_async(&self, dst: &mut [u8]) -> Result<PJRTEvent<'a>, PJRTError<'a>> {
+    pub fn to_host_buffer_async(&self, dst: &mut [u8]) -> Result<PJRTEvent<'rt>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -366,7 +366,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(PJRTEvent::new(self.rt, args.event))
     }
 
-    pub fn unsafe_pointer(&self) -> Result<usize, PJRTError<'a>> {
+    pub fn unsafe_pointer(&self) -> Result<usize, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -390,7 +390,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn opaque_device_memory_data_pointer(&self) -> Result<Option<*mut libc::c_void>, PJRTError<'a>> {
+    pub fn opaque_device_memory_data_pointer(&self) -> Result<Option<*mut libc::c_void>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -414,7 +414,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn to_host_buffer_blocking(&self, dst: &mut [u8]) -> Result<(), PJRTError<'a>> {
+    pub fn to_host_buffer_blocking(&self, dst: &mut [u8]) -> Result<(), PJRTError<'rt>> {
         let event = self.to_host_buffer_async(dst)?;
         event.ok()
     }
@@ -423,7 +423,7 @@ impl<'a> PJRTBuffer<'a> {
         &self,
         dst: &mut [u8],
         offset: i64,
-    ) -> Result<PJRTEvent<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTEvent<'rt>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         if offset < 0 {
             return Err(self.error("offset must be >= 0"));
@@ -462,7 +462,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(PJRTEvent::new(self.rt, args.event))
     }
 
-    pub fn copy_to_device(&self, device: &PJRTDevice) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+    pub fn copy_to_device(&self, device: &PJRTDevice) -> Result<PJRTBuffer<'rt, 'client>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let dst_device = device.raw();
         if dst_device.is_null() {
@@ -496,8 +496,8 @@ impl<'a> PJRTBuffer<'a> {
 
     pub fn donate_with_control_dependency(
         &self,
-        dependency: &PJRTEvent<'a>,
-    ) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+        dependency: &PJRTEvent<'rt>,
+    ) -> Result<PJRTBuffer<'rt, 'client>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -557,7 +557,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(PJRTBuffer::new(self.rt, args.out_buffer))
     }
 
-    pub fn copy_to_memory(&self, dst_memory: PJRTMemory<'a>) -> Result<PJRTBuffer<'a>, PJRTError<'a>> {
+    pub fn copy_to_memory(&self, dst_memory: PJRTMemory<'rt, 'client>) -> Result<PJRTBuffer<'rt, 'client>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         if dst_memory.raw.is_null() {
             return Err(self.error("copy_to_memory: dst_memory is null"));
@@ -588,7 +588,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn copy_raw_to_host_blocking(&self, dst: &mut [u8], offset: i64) -> Result<(), PJRTError<'a>> {
+    pub fn copy_raw_to_host_blocking(&self, dst: &mut [u8], offset: i64) -> Result<(), PJRTError<'rt>> {
         let event = self.copy_raw_to_host_async(dst, offset)?;
         event.ok()
     }
@@ -601,7 +601,7 @@ impl<'a> PJRTBuffer<'a> {
         future_ready_callback: Option<
             unsafe extern "C" fn(args: *mut PJRT_Buffer_CopyRawToHostFuture_Callback_Args),
         >,
-    ) -> Result<PJRTEvent<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTEvent<'rt>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         if offset < 0 {
             return Err(self.error("offset must be >= 0"));
@@ -637,7 +637,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(PJRTEvent::new(self.rt, args.event))
     }
 
-    pub fn is_on_cpu(&self) -> Result<bool, PJRTError<'a>> {
+    pub fn is_on_cpu(&self) -> Result<bool, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -661,7 +661,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn memory(&self) -> Result<PJRTMemory<'a>, PJRTError<'a>> {
+    pub fn memory(&self) -> Result<PJRTMemory<'rt, 'client>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -688,7 +688,7 @@ impl<'a> PJRTBuffer<'a> {
         Ok(PJRTMemory::new(self.rt, args.memory))
     }
 
-    pub fn increase_external_ref(&self) -> Result<(), PJRTError<'a>> {
+    pub fn increase_external_ref(&self) -> Result<(), PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let func = self
@@ -711,7 +711,7 @@ impl<'a> PJRTBuffer<'a> {
         }
     }
 
-    pub fn decrease_external_ref(&self) -> Result<(), PJRTError<'a>> {
+    pub fn decrease_external_ref(&self) -> Result<(), PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let func = self
@@ -735,7 +735,7 @@ impl<'a> PJRTBuffer<'a> {
     }
 }
 
-impl Drop for PJRTBuffer<'_> {
+impl Drop for PJRTBuffer<'_, '_> {
     fn drop(&mut self) {
         if self.raw.is_null() {
             return;

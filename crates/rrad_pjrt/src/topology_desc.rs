@@ -23,18 +23,18 @@ pub struct PJRTNamedAttribute {
     pub value: PJRTNamedValue,
 }
 
-pub struct PJRTDeviceDescriptionRef<'a> {
-    pub rt: &'a PjrtRuntime,
+pub struct PJRTDeviceDescriptionRef<'rt, 'client> {
+    pub rt: &'rt PjrtRuntime,
     pub raw: *mut PJRT_DeviceDescription,
-    _topology: PhantomData<&'a PJRTTopologyDescription<'a>>,
+    _client: PhantomData<&'client PJRTClient<'rt>>,
 }
 
-impl<'a> PJRTDeviceDescriptionRef<'a> {
-    pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_DeviceDescription) -> Self {
+impl<'rt, 'client> PJRTDeviceDescriptionRef<'rt, 'client> {
+    pub(crate) fn new(rt: &'rt PjrtRuntime, raw: *mut PJRT_DeviceDescription) -> Self {
         Self {
             rt,
             raw,
-            _topology: PhantomData,
+            _client: PhantomData,
         }
     }
 
@@ -42,11 +42,11 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         self.raw
     }
 
-    fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+    fn error(&self, msg: impl Into<String>) -> PJRTError<'rt> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_DeviceDescription, PJRTError<'a>> {
+    fn raw_checked(&self) -> Result<*mut PJRT_DeviceDescription, PJRTError<'rt>> {
         if self.raw.is_null() {
             Err(self.error("PJRT_DeviceDescription is null"))
         } else {
@@ -54,7 +54,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         }
     }
 
-    pub fn id(&self) -> Result<i32, PJRTError<'a>> {
+    pub fn id(&self) -> Result<i32, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self.rt.api().PJRT_DeviceDescription_Id.ok_or_else(|| {
             self.error("PJRT_DeviceDescription_Id symbol not found")
@@ -74,7 +74,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         }
     }
 
-    pub fn process_index(&self) -> Result<i32, PJRTError<'a>> {
+    pub fn process_index(&self) -> Result<i32, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -98,7 +98,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         }
     }
 
-    pub fn kind(&self) -> Result<String, PJRTError<'a>> {
+    pub fn kind(&self) -> Result<String, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self.rt.api().PJRT_DeviceDescription_Kind.ok_or_else(|| {
             self.error("PJRT_DeviceDescription_Kind symbol not found")
@@ -118,7 +118,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         bytes_to_string(self.rt, args.device_kind, args.device_kind_size, "device_kind")
     }
 
-    pub fn debug_string(&self) -> Result<String, PJRTError<'a>> {
+    pub fn debug_string(&self) -> Result<String, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -142,7 +142,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         bytes_to_string(self.rt, args.debug_string, args.debug_string_size, "debug_string")
     }
 
-    pub fn to_string(&self) -> Result<String, PJRTError<'a>> {
+    pub fn to_string(&self) -> Result<String, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -166,7 +166,7 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
         bytes_to_string(self.rt, args.to_string, args.to_string_size, "to_string")
     }
 
-    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
+    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -191,14 +191,14 @@ impl<'a> PJRTDeviceDescriptionRef<'a> {
     }
 }
 
-pub struct PJRTTopologyDescription<'a> {
-    rt: &'a PjrtRuntime,
+pub struct PJRTTopologyDescription<'rt, 'client> {
+    rt: &'rt PjrtRuntime,
     raw: *mut PJRT_TopologyDescription,
-    _client: PhantomData<&'a PJRTClient<'a>>,
+    _client: PhantomData<&'client PJRTClient<'rt>>,
 }
 
-impl<'a> PJRTTopologyDescription<'a> {
-    pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_TopologyDescription) -> Self {
+impl<'rt, 'client> PJRTTopologyDescription<'rt, 'client> {
+    pub(crate) fn new(rt: &'rt PjrtRuntime, raw: *mut PJRT_TopologyDescription) -> Self {
         Self {
             rt,
             raw,
@@ -210,15 +210,15 @@ impl<'a> PJRTTopologyDescription<'a> {
         self.raw
     }
 
-    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'rt> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
     pub fn create(
-        rt: &'a PjrtRuntime,
+        rt: &'rt PjrtRuntime,
         topology_name: Option<&str>,
         create_options: &[PJRT_NamedValue],
-    ) -> Result<Self, PJRTError<'a>> {
+    ) -> Result<Self, PJRTError<'rt>> {
         let function = rt.api().PJRT_TopologyDescription_Create.ok_or_else(|| {
             PJRTError::invalid_arg(rt, "PJRT_TopologyDescription_Create symbol not found")
         })?;
@@ -258,7 +258,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         Ok(Self::new(rt, args.topology))
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_TopologyDescription, PJRTError<'a>> {
+    fn raw_checked(&self) -> Result<*mut PJRT_TopologyDescription, PJRTError<'rt>> {
         if self.raw.is_null() {
             Err(self.error("PJRT_TopologyDescription is null"))
         } else {
@@ -266,7 +266,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         }
     }
 
-    pub fn platform_name(&self) -> Result<String, PJRTError<'a>> {
+    pub fn platform_name(&self) -> Result<String, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -290,7 +290,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         bytes_to_string(self.rt, args.platform_name, args.platform_name_size, "platform_name")
     }
 
-    pub fn platform_version(&self) -> Result<String, PJRTError<'a>> {
+    pub fn platform_version(&self) -> Result<String, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -318,8 +318,7 @@ impl<'a> PJRTTopologyDescription<'a> {
             "platform_version",
         )
     }
-
-    pub fn device_descriptions(&self) -> Result<Vec<PJRTDeviceDescriptionRef<'a>>, PJRTError<'a>> {
+    pub fn device_descriptions(&self) -> Result<Vec<PJRTDeviceDescriptionRef<'rt, 'client>>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -357,7 +356,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         Ok(out)
     }
 
-    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
+    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -381,7 +380,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         decode_named_values(self.rt, args.attributes, args.num_attributes)
     }
 
-    pub fn serialize(&self) -> Result<Vec<u8>, PJRTError<'a>> {
+    pub fn serialize(&self) -> Result<Vec<u8>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
         let f = self
             .rt
@@ -434,7 +433,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         Ok(bytes)
     }
 
-    pub fn deserialize(rt: &'a PjrtRuntime, serialized_topology: &[u8]) -> Result<Self, PJRTError<'a>> {
+    pub fn deserialize(rt: &'rt PjrtRuntime, serialized_topology: &[u8]) -> Result<Self, PJRTError<'rt>> {
         if serialized_topology.is_empty() {
             return Err(
                 PJRTError::invalid_arg(rt, "serialized_topology must not be empty"),
@@ -476,7 +475,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         client: *mut PJRT_Client,
         program: &PJRT_Program,
         compile_options: &[u8],
-    ) -> Result<*mut PJRT_Executable, PJRTError<'a>> {
+    ) -> Result<*mut PJRT_Executable, PJRTError<'rt>> {
         let topology = self.raw_checked()?;
         if client.is_null() {
             return Err(self.error("PJRT_Client is null"));
@@ -532,7 +531,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         Ok(args.executable)
     }
 
-    fn destroy_executable(&self, executable: *mut PJRT_Executable) -> Result<(), PJRTError<'a>> {
+    fn destroy_executable(&self, executable: *mut PJRT_Executable) -> Result<(), PJRTError<'rt>> {
         if executable.is_null() {
             return Ok(());
         }
@@ -555,7 +554,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         }
     }
 
-    fn serialize_executable(&self, executable: *mut PJRT_Executable) -> Result<Vec<u8>, PJRTError<'a>> {
+    fn serialize_executable(&self, executable: *mut PJRT_Executable) -> Result<Vec<u8>, PJRTError<'rt>> {
         if executable.is_null() {
             return Err(self.error("serialize_executable received null executable"));
         }
@@ -614,7 +613,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         program: &PJRT_Program,
         compile_options: &[u8],
         overridden_compile_options: Option<&[u8]>,
-    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTLoadedExecutable<'rt, 'client>, PJRTError<'rt>> {
         let executable = self.compile(client, program, compile_options)?;
         let serialized = self.serialize_executable(executable);
         let destroy_result = self.destroy_executable(executable);
@@ -681,7 +680,7 @@ impl<'a> PJRTTopologyDescription<'a> {
         format: &str,
         compile_options: &[u8],
         overridden_compile_options: Option<&[u8]>,
-    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTLoadedExecutable<'rt, 'client>, PJRTError<'rt>> {
         if program_code.is_empty() {
             return Err(self.error("program_code must not be empty"));
         }
@@ -706,7 +705,7 @@ impl<'a> PJRTTopologyDescription<'a> {
     }
 }
 
-impl Drop for PJRTTopologyDescription<'_> {
+impl Drop for PJRTTopologyDescription<'_, '_> {
     fn drop(&mut self) {
         if self.raw.is_null() {
             return;
@@ -729,7 +728,7 @@ impl Drop for PJRTTopologyDescription<'_> {
     }
 }
 
-impl Debug for PJRTTopologyDescription<'_> {
+impl Debug for PJRTTopologyDescription<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PJRTTopologyDescription")
             .field("raw", &self.raw)
@@ -737,13 +736,13 @@ impl Debug for PJRTTopologyDescription<'_> {
     }
 }
 
-fn bytes_to_string<'a>(
-    rt: &'a PjrtRuntime,
+fn bytes_to_string<'rt>(
+    rt: &'rt PjrtRuntime,
 
     ptr: *const libc::c_char,
     size: usize,
     field_name: &str,
-) -> Result<String, PJRTError<'a>> {
+) -> Result<String, PJRTError<'rt>> {
     if size == 0 {
         return Ok(String::new());
     }
@@ -757,11 +756,11 @@ fn bytes_to_string<'a>(
     Ok(String::from_utf8_lossy(bytes).into_owned())
 }
 
-fn decode_named_values<'a>(
-    rt: &'a PjrtRuntime,
+fn decode_named_values<'rt>(
+    rt: &'rt PjrtRuntime,
     attrs: *const PJRT_NamedValue,
     num_attrs: usize,
-) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
+) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'rt>> {
     const NV_STRING: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kString;
     const NV_INT64: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kInt64;
     const NV_INT64_LIST: PJRT_NamedValue_Type = PJRT_NamedValue_Type_PJRT_NamedValue_kInt64List;
@@ -855,3 +854,5 @@ fn decode_named_values<'a>(
     }
     Ok(out)
 }
+
+

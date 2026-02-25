@@ -4,8 +4,8 @@ use std::ptr::{null, null_mut};
 use crate::ffi::pjrt_sys::*;
 use crate::loader::PjrtRuntime;
 
-pub struct PJRTError<'a> {
-    pub rt: &'a PjrtRuntime,
+pub struct PJRTError<'rt> {
+    pub rt: &'rt PjrtRuntime,
     pub raw: *mut PJRT_Error,
     pub local_code: Option<PJRT_Error_Code>,
     pub local_message: Option<String>,
@@ -16,8 +16,8 @@ pub struct PJRTError<'a> {
 /// [`crate::executable::PJRTExecutable`].
 
 
-impl<'a> PJRTError<'a> {
-    pub fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_Error) -> Self {
+impl<'rt> PJRTError<'rt> {
+    pub fn new(rt: &'rt PjrtRuntime, raw: *mut PJRT_Error) -> Self {
         Self {
             rt,
             raw,
@@ -37,7 +37,7 @@ impl<'a> PJRTError<'a> {
         raw
     }
 
-    pub fn raw_checked(&self) -> Result<*mut PJRT_Error, PJRTError<'a>> {
+    pub fn raw_checked(&self) -> Result<*mut PJRT_Error, PJRTError<'rt>> {
         if self.raw.is_null() {
             Err(PJRTError::invalid_arg(self.rt, "PJRT_Error is null"))
         } else {
@@ -45,7 +45,7 @@ impl<'a> PJRTError<'a> {
         }
     }
 
-    pub fn get_code(&self) -> Result<PJRT_Error_Code, PJRTError<'a>> {
+    pub fn get_code(&self) -> Result<PJRT_Error_Code, PJRTError<'rt>> {
         if let Some(code) = self.local_code {
             return Ok(code);
         }
@@ -71,7 +71,7 @@ impl<'a> PJRTError<'a> {
         }
     }
 
-    pub fn message(&self) -> Result<String, PJRTError<'a>> {
+    pub fn message(&self) -> Result<String, PJRTError<'rt>> {
         if let Some(msg) = &self.local_message {
             return Ok(msg.clone());
         }
@@ -103,7 +103,7 @@ impl<'a> PJRTError<'a> {
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
 
-    pub fn invalid_arg(rt: &'a PjrtRuntime, msg: impl Into<String>) -> Self {
+    pub fn invalid_arg(rt: &'rt PjrtRuntime, msg: impl Into<String>) -> Self {
         Self {
             rt,
             raw: null_mut(),
@@ -112,7 +112,7 @@ impl<'a> PJRTError<'a> {
         }
     }
 
-    pub fn local(rt: &'a PjrtRuntime, code: PJRT_Error_Code, msg: impl Into<String>) -> Self {
+    pub fn local(rt: &'rt PjrtRuntime, code: PJRT_Error_Code, msg: impl Into<String>) -> Self {
         Self {
             rt,
             local_code: Some(code),
@@ -187,6 +187,6 @@ impl Drop for PJRTError<'_> {
     }
 }
 
-pub fn from_raw<'a>(rt: &'a PjrtRuntime, raw: *mut PJRT_Error) -> PJRTError<'a> {
+pub fn from_raw<'rt>(rt: &'rt PjrtRuntime, raw: *mut PJRT_Error) -> PJRTError<'rt> {
     PJRTError::new(rt, raw)
 }

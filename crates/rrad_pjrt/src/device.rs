@@ -22,13 +22,13 @@ pub struct PJRTDeviceMemoryStats {
     pub peak_pool_bytes: Option<i64>,
 }
 
-pub struct PJRTAsyncTrackingEvent<'a> {
-    rt: &'a PjrtRuntime,
+pub struct PJRTAsyncTrackingEvent<'rt> {
+    rt: &'rt PjrtRuntime,
     raw: *mut PJRT_AsyncTrackingEvent,
 }
 
-impl<'a> PJRTAsyncTrackingEvent<'a> {
-    fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_AsyncTrackingEvent) -> Self {
+impl<'rt> PJRTAsyncTrackingEvent<'rt> {
+    fn new(rt: &'rt PjrtRuntime, raw: *mut PJRT_AsyncTrackingEvent) -> Self {
         Self { rt, raw }
     }
 
@@ -59,15 +59,15 @@ impl Drop for PJRTAsyncTrackingEvent<'_> {
     }
 }
 
-pub struct PJRTDevice<'a> {
-    pub rt: &'a PjrtRuntime,
+pub struct PJRTDevice<'rt, 'client> {
+    pub rt: &'rt PjrtRuntime,
     pub raw: *mut PJRT_Device,
-    _client: PhantomData<&'a PJRTClient<'a>>,
+    _client: PhantomData<&'client PJRTClient<'rt>>,
 }
 
 
-impl<'a> PJRTDevice<'a> {
-    pub(crate) fn new(rt: &'a PjrtRuntime, raw_device: *mut PJRT_Device) -> Self {
+impl<'rt, 'client> PJRTDevice<'rt, 'client> {
+    pub(crate) fn new(rt: &'rt PjrtRuntime, raw_device: *mut PJRT_Device) -> Self {
         Self {
             rt,
             raw: raw_device,
@@ -84,11 +84,11 @@ impl<'a> PJRTDevice<'a> {
         self.raw
     }
 
-    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'rt> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_Device, PJRTError<'a>> {
+    fn raw_checked(&self) -> Result<*mut PJRT_Device, PJRTError<'rt>> {
         if self.raw.is_null() {
             Err(self.error("PJRT_Device is null"))
         } else {
@@ -96,7 +96,7 @@ impl<'a> PJRTDevice<'a> {
         }
     }
 
-    pub fn description(&self) -> Result<PJRTDeviceDescriptionRef<'a>, PJRTError<'a>> {
+    pub fn description(&self) -> Result<PJRTDeviceDescriptionRef<'rt, 'client>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let get_desc = self.rt.api().PJRT_Device_GetDescription.ok_or_else(|| {
@@ -125,7 +125,7 @@ impl<'a> PJRTDevice<'a> {
         ))
     }
 
-    pub fn is_addressable(&self) -> Result<bool, PJRTError<'a>> {
+    pub fn is_addressable(&self) -> Result<bool, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self.rt.api().PJRT_Device_IsAddressable.ok_or_else(|| {
@@ -147,7 +147,7 @@ impl<'a> PJRTDevice<'a> {
         }
     }
 
-    pub fn memory_stats(&self) -> Result<PJRTDeviceMemoryStats, PJRTError<'a>> {
+    pub fn memory_stats(&self) -> Result<PJRTDeviceMemoryStats, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self.rt.api().PJRT_Device_MemoryStats.ok_or_else(|| {
@@ -216,7 +216,7 @@ impl<'a> PJRTDevice<'a> {
         launch_id: i32,
         error_code: PJRT_Error_Code,
         error_message: &str,
-    ) -> Result<bool, PJRTError<'a>> {
+    ) -> Result<bool, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self.rt.api().PJRT_Device_PoisonExecution.ok_or_else(|| {
@@ -250,7 +250,7 @@ impl<'a> PJRTDevice<'a> {
     pub fn create_async_tracking_event(
         &self,
         description: &str,
-    ) -> Result<PJRTAsyncTrackingEvent<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTAsyncTrackingEvent<'rt>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -287,7 +287,7 @@ impl<'a> PJRTDevice<'a> {
         Ok(PJRTAsyncTrackingEvent::new(self.rt, args.event))
     }
 
-    pub fn local_hardware_id(&self) -> Result<i32, PJRTError<'a>> {
+    pub fn local_hardware_id(&self) -> Result<i32, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self.rt.api().PJRT_Device_LocalHardwareId.ok_or_else(|| {
@@ -309,7 +309,7 @@ impl<'a> PJRTDevice<'a> {
         }
     }
 
-    pub fn addressable_memories(&self) -> Result<Vec<PJRTMemory<'a>>, PJRTError<'a>> {
+    pub fn addressable_memories(&self) -> Result<Vec<PJRTMemory<'rt, 'client>>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self
@@ -349,7 +349,7 @@ impl<'a> PJRTDevice<'a> {
             .collect())
     }
 
-    pub fn default_memory(&self) -> Result<PJRTMemory<'a>, PJRTError<'a>> {
+    pub fn default_memory(&self) -> Result<PJRTMemory<'rt, 'client>, PJRTError<'rt>> {
         let raw = self.raw_checked().map_err(|e| e )?;
 
         let f = self.rt.api().PJRT_Device_DefaultMemory.ok_or_else(|| {
@@ -377,32 +377,32 @@ impl<'a> PJRTDevice<'a> {
 
 
 
-    pub fn id(&self) -> Result<i32, PJRTError<'a>> {
+    pub fn id(&self) -> Result<i32, PJRTError<'rt>> {
         self.description()?.id()
     }
 
-    pub fn kind(&self) -> Result<String, PJRTError<'a>> {
+    pub fn kind(&self) -> Result<String, PJRTError<'rt>> {
         self.description()?.kind()
     }
 
-    pub fn process_index(&self) -> Result<i32, PJRTError<'a>> {
+    pub fn process_index(&self) -> Result<i32, PJRTError<'rt>> {
         self.description()?.process_index()
     }
 
-    pub fn debug_string(&self) -> Result<String, PJRTError<'a>> {
+    pub fn debug_string(&self) -> Result<String, PJRTError<'rt>> {
         self.description()?.debug_string()
     }
 
-    pub fn to_string(&self) -> Result<String, PJRTError<'a>> {
+    pub fn to_string(&self) -> Result<String, PJRTError<'rt>> {
         self.description()?.to_string()
     }
 
-    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'a>> {
+    pub fn attributes(&self) -> Result<Vec<PJRTNamedAttribute>, PJRTError<'rt>> {
         self.description()?.attributes()
     }
 
     // Backward compatibility with existing call sites.
-    pub fn debug_error(&self) -> Result<String, PJRTError<'a>> {
+    pub fn debug_error(&self) -> Result<String, PJRTError<'rt>> {
         self.debug_string()
     }
 }

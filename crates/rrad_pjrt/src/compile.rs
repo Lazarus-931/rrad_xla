@@ -7,22 +7,22 @@ use crate::loader::PjrtRuntime;
 use std::ptr::null_mut;
 use crate::client::PJRTClient;
 
-pub struct PJRTCompiler<'a> {
-    pub rt: &'a PjrtRuntime,
+pub struct PJRTCompiler<'rt, 'client> {
+    pub rt: &'rt PjrtRuntime,
     pub raw: *mut PJRT_Client,
-    _client: PhantomData<&'a PJRTClient<'a>>,
+    _client: PhantomData<&'client PJRTClient<'rt>>,
 }
 
-impl<'a> PJRTCompiler<'a> {
-    pub(crate) fn new(rt: &'a PjrtRuntime, raw: *mut PJRT_Client) -> Self {
+impl<'rt, 'client> PJRTCompiler<'rt, 'client> {
+    pub(crate) fn new(rt: &'rt PjrtRuntime, raw: *mut PJRT_Client) -> Self {
         Self { rt, raw, _client: PhantomData }
     }
 
-    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'a> {
+    pub fn error(&self, msg: impl Into<String>) -> PJRTError<'rt> {
         PJRTError::invalid_arg(self.rt, msg)
     }
 
-    fn raw_checked(&self) -> Result<*mut PJRT_Client, PJRTError<'a>> {
+    fn raw_checked(&self) -> Result<*mut PJRT_Client, PJRTError<'rt>> {
         if self.raw.is_null() {
             Err(self.error("PJRT_Client for compiling is null"))
         } else {
@@ -34,7 +34,7 @@ impl<'a> PJRTCompiler<'a> {
         &self,
         program: &PJRT_Program,
         compile_options: &[u8],
-    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTLoadedExecutable<'rt, 'client>, PJRTError<'rt>> {
         let client = self.raw_checked()?;
         let mut program_local = *program;
 
@@ -90,7 +90,7 @@ impl<'a> PJRTCompiler<'a> {
         program_code: &str,
         format: &str,
         compile_options: &[u8],
-    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTLoadedExecutable<'rt, 'client>, PJRTError<'rt>> {
         if program_code.is_empty() {
             return Err(self.error("program_code must not be empty"));
         }
@@ -116,7 +116,7 @@ impl<'a> PJRTCompiler<'a> {
         program: &mut PJRT_Program,
         format: &str,
         compile_options: &[u8],
-    ) -> Result<PJRTLoadedExecutable<'a>, PJRTError<'a>> {
+    ) -> Result<PJRTLoadedExecutable<'rt, 'client>, PJRTError<'rt>> {
         if format.is_empty() {
             return Err(self.error("format must not be empty"));
         }
@@ -125,7 +125,7 @@ impl<'a> PJRTCompiler<'a> {
         self.compile_program(program, compile_options)
     }
 
-    pub fn addressable_devices(&self) -> Result<Vec<PJRTDevice<'a>>, PJRTError<'a>> {
+    pub fn addressable_devices(&self) -> Result<Vec<PJRTDevice<'rt, 'client>>, PJRTError<'rt>> {
         let raw = self.raw_checked()?;
 
         let f = self

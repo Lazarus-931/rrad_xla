@@ -52,9 +52,9 @@ pub enum HostBufferSemantics {
     MutableZeroCopy,
 }
 
-pub struct BufferFromHostOptions<'a> {
-    pub device: Option<PJRTDevice<'a>>,
-    pub memory: Option<PJRTMemory<'a>>,
+pub struct BufferFromHostOptions<'rt, 'client, 'a> {
+    pub device: Option<PJRTDevice<'rt, 'client>>,
+    pub memory: Option<PJRTMemory<'rt, 'client>>,
     pub layout: Option<&'a PJRT_Buffer_MemoryLayout>,
     pub semantics: HostBufferSemantics,
 }

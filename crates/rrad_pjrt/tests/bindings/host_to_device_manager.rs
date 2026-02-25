@@ -15,7 +15,7 @@ mod host_to_device_manager_bindings_tests {
 
     fn make_manager<'a>(
         client: &'a PJRTClient<'a>,
-    ) -> Result<PjrtHtoDeviceManager<'a>, PJRTError<'a>> {
+    ) -> Result<PjrtHtoDeviceManager<'a, 'a>, PJRTError<'a>> {
         let shape_specs = [PJRTShapeSpec::new(
             DIMS_1D.to_vec(),
             PJRT_Buffer_Type_PJRT_Buffer_Type_F32,

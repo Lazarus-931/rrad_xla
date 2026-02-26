@@ -125,7 +125,7 @@ PJRT_DEFINE_STRUCT_TRAITS(PJRT_Api_Version, minor_version);
 // PJRT C API methods generally return a PJRT_Error*, which is nullptr if there
 // is no error and set if there is. The implementation allocates any returned
 // PJRT_Errors, but the caller is always responsible for freeing them via
-// PJRT_Error_Destroy.
+// PjrtErrorDestroy.
 
 typedef struct PJRT_Error PJRT_Error;
 
@@ -137,7 +137,7 @@ struct PJRT_Error_Destroy_Args {
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Error_Destroy_Args, error);
 
 // Frees `error`. `error` can be nullptr.
-typedef void PJRT_Error_Destroy(PJRT_Error_Destroy_Args* args);
+typedef void PjrtErrorDestroy(PJRT_Error_Destroy_Args* args);
 
 struct PJRT_Error_Message_Args {
   size_t struct_size;
@@ -291,13 +291,13 @@ PJRT_DEFINE_STRUCT_TRAITS(PJRT_Event_Error_Args, event);
 
 // Should only be called if PJRT_Event_IsReady returns true.
 // Returns `nullptr` if there is no error.
-// The returned error should be freed with `PJRT_Error_Destroy`.
+// The returned error should be freed with `PjrtErrorDestroy`.
 //
 // If `PJRT_Event_Await` has been called, this will return a pointer to an
 // identical error status as that call, as will subsequent calls to
 // `PJRT_Event_Error`. However, each of these `PJRT_Error *` pointers are
 // independent of `PJRT_Error *`s returned by other function calls, so they must
-// each be freed separately using `PJRT_Error_Destroy`.
+// each be freed separately using `PjrtErrorDestroy`.
 typedef PJRT_Error* PJRT_Event_Error(PJRT_Event_Error_Args* args);
 
 struct PJRT_Event_Await_Args {
@@ -309,13 +309,13 @@ PJRT_DEFINE_STRUCT_TRAITS(PJRT_Event_Await_Args, event);
 
 // Blocks the calling thread until `event` is ready, then returns the error
 // status (with `nullptr` indicating no error). The returned status should be
-// freed with `PJRT_Error_Destroy`.
+// freed with `PjrtErrorDestroy`.
 typedef PJRT_Error* PJRT_Event_Await(PJRT_Event_Await_Args* args);
 
 // A callback to be performed once an event is ready. It will be called on the
 // event's error state and a pointer to an object of the caller's choice.
 // Ownership of `error` is passed to the callback. The callback must destroy
-// `error` via `PJRT_Error_Destroy`. The caller retains ownership of `user_arg`.
+// `error` via `PjrtErrorDestroy`. The caller retains ownership of `user_arg`.
 typedef void (*PJRT_Event_OnReadyCallback)(PJRT_Error* error, void* user_arg);
 
 struct PJRT_Event_OnReady_Args {
@@ -2764,7 +2764,7 @@ typedef struct PJRT_Api {
 
   PJRT_Api_Version pjrt_api_version;
 
-  _PJRT_API_STRUCT_FIELD(PJRT_Error_Destroy);
+  _PJRT_API_STRUCT_FIELD(PjrtErrorDestroy);
   _PJRT_API_STRUCT_FIELD(PJRT_Error_Message);
   _PJRT_API_STRUCT_FIELD(PJRT_Error_GetCode);
 

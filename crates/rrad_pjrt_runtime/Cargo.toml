@@ -3,6 +3,9 @@ name = "rrad_pjrt_runtime"
 version = "0.1.0"
 edition = "2024"
 
+[package.metadata]
+author = ["Alazar Manakelew alazermanakelewb@gmail.com"]
+
 [dependencies]
 
 [lib]

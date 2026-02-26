@@ -1,7 +1,7 @@
 
 //! rrad_pjrt - a functional, simple and memory-safe binding for XLA's rrad_pjrt_runtime
 //!
-//! PJRT is the device api to XLA's (Accelerated Linear Algebra) which centralizes execution
+//! PJRT is the device api_wrapper to XLA's (Accelerated Linear Algebra) which centralizes execution
 //! across frameworks and pieces of hardware, with an independent interface in mind.
 //!
 

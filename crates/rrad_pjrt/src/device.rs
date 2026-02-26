@@ -90,7 +90,7 @@ impl<'rt, 'client> PJRTDevice<'rt, 'client> {
 
     fn raw_checked(&self) -> Result<*mut PJRT_Device, PJRTError<'rt>> {
         if self.raw.is_null() {
-            Err(self.error("PJRT_Device is null"))
+            Err(self.error("PjrtDevice is null"))
         } else {
             Ok(self.raw)
         }

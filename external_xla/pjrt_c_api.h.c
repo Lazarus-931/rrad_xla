@@ -359,10 +359,10 @@ typedef PJRT_Error* PJRT_Event_Set(PJRT_Event_Set_Args* args);
 // ---------------------------------- Client -----------------------------------
 
 typedef struct PJRT_Client PJRT_Client;
-typedef struct PJRT_Device PJRT_Device;
+typedef struct PjrtDevice PjrtDevice;
 typedef struct PJRT_Memory PJRT_Memory;
 typedef struct PJRT_ShapeSpec PJRT_ShapeSpec;
-typedef struct PJRT_DeviceDescription PJRT_DeviceDescription;
+typedef struct PjrtDeviceDescription PjrtDeviceDescription;
 typedef struct PJRT_TopologyDescription PJRT_TopologyDescription;
 typedef struct PJRT_Executable PJRT_Executable;
 typedef struct PJRT_LoadedExecutable PJRT_LoadedExecutable;
@@ -558,7 +558,7 @@ struct PJRT_Client_Devices_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
   PJRT_Client* client;
-  PJRT_Device* const* devices;  // out
+  PjrtDevice* const* devices;  // out
   size_t num_devices;           // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Client_Devices_Args, num_devices);
@@ -571,7 +571,7 @@ struct PJRT_Client_AddressableDevices_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
   PJRT_Client* client;
-  PJRT_Device* const* addressable_devices;  // out
+  PjrtDevice* const* addressable_devices;  // out
   size_t num_addressable_devices;           // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Client_AddressableDevices_Args,
@@ -589,11 +589,11 @@ struct PJRT_Client_LookupDevice_Args {
   PJRT_Client* client;
   int id;
   // `device` has the same lifetime as `client`. It is owned by `client`.
-  PJRT_Device* device;  // out
+  PjrtDevice* device;  // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Client_LookupDevice_Args, device);
 
-// Returns a PJRT_Device* with the specified ID as returned by
+// Returns a PjrtDevice* with the specified ID as returned by
 // PJRT_DeviceDescription_Id.
 typedef PJRT_Error* PJRT_Client_LookupDevice(
     PJRT_Client_LookupDevice_Args* args);
@@ -605,12 +605,12 @@ struct PJRT_Client_LookupAddressableDevice_Args {
   int local_hardware_id;
   // `addressable_device` has the same lifetime as `client`. It is owned by
   // `client`.
-  PJRT_Device* addressable_device;  // out
+  PjrtDevice* addressable_device;  // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Client_LookupAddressableDevice_Args,
                           addressable_device);
 
-// Returns an addressable PJRT_Device* with the specified ID as returned by
+// Returns an addressable PjrtDevice* with the specified ID as returned by
 // PJRT_DeviceDescription_LocalHardwareId.
 typedef PJRT_Error* PJRT_Client_LookupAddressableDevice(
     PJRT_Client_LookupAddressableDevice_Args* args);
@@ -792,7 +792,7 @@ struct PJRT_AsyncHostToDeviceTransferManager_Device_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
   PJRT_AsyncHostToDeviceTransferManager* transfer_manager;
-  PJRT_Device* device_out;  // out
+  PjrtDevice* device_out;  // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_AsyncHostToDeviceTransferManager_Device_Args,
                           device_out);
@@ -1032,7 +1032,7 @@ struct PJRT_Client_CreateUninitializedBuffer_Args {
   PJRT_Buffer_MemoryLayout* shape_layout;
 
   // Device to copy host data to.
-  PJRT_Device* device;
+  PjrtDevice* device;
 
   // If nullptr, host data will be copied to `device`, otherwise we copy data to
   // `memory`.
@@ -1141,7 +1141,7 @@ struct PJRT_Client_BufferFromHostBuffer_Args {
   PJRT_HostBufferSemantics host_buffer_semantics;
 
   // Device to copy host data to.
-  PJRT_Device* device;
+  PjrtDevice* device;
 
   // If nullptr, host data will be copied to `device`, otherwise we copy data to
   // `memory`.
@@ -1180,7 +1180,7 @@ struct PJRT_Client_CreateViewOfDeviceBuffer_Args {
   // The device that `device_buffer_ptr` is on. The argument is ignored if
   // `memory` is provided.
   // DEPRECATED: Use `memory` instead.
-  PJRT_Device* device;
+  PjrtDevice* device;
   // A callback to be performed when the PJRT_Buffer is done with the on-device
   // buffer. This callback is optional and can be a nullptr.
   void (*on_delete_callback)(void* device_buffer_ptr, void* user_arg);
@@ -1244,7 +1244,7 @@ typedef PJRT_Error* PJRT_Client_CreateBuffersForAsyncHostToDevice(
 struct PJRT_DeviceDescription_Id_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_DeviceDescription* device_description;
+  PjrtDeviceDescription* device_description;
   int id;  // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_DeviceDescription_Id_Args, id);
@@ -1258,7 +1258,7 @@ typedef PJRT_Error* PJRT_DeviceDescription_Id(
 struct PJRT_DeviceDescription_ProcessIndex_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_DeviceDescription* device_description;
+  PjrtDeviceDescription* device_description;
   int process_index;  // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_DeviceDescription_ProcessIndex_Args,
@@ -1275,7 +1275,7 @@ typedef PJRT_Error* PJRT_DeviceDescription_ProcessIndex(
 struct PJRT_DeviceDescription_Attributes_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_DeviceDescription* device_description;
+  PjrtDeviceDescription* device_description;
   size_t num_attributes;              // out
   const PJRT_NamedValue* attributes;  // out
 };
@@ -1289,7 +1289,7 @@ typedef PJRT_Error* PJRT_DeviceDescription_Attributes(
 struct PJRT_DeviceDescription_Kind_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_DeviceDescription* device_description;
+  PjrtDeviceDescription* device_description;
   // `device_kind` string is owned by `device` and has same lifetime as
   // `device`.
   const char* device_kind;  // out
@@ -1305,7 +1305,7 @@ typedef PJRT_Error* PJRT_DeviceDescription_Kind(
 struct PJRT_DeviceDescription_DebugString_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_DeviceDescription* device_description;
+  PjrtDeviceDescription* device_description;
   const char* debug_string;  // out
   size_t debug_string_size;  // out
 };
@@ -1320,7 +1320,7 @@ typedef PJRT_Error* PJRT_DeviceDescription_DebugString(
 struct PJRT_DeviceDescription_ToString_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_DeviceDescription* device_description;
+  PjrtDeviceDescription* device_description;
   const char* to_string;  // out
   size_t to_string_size;  // out
 };
@@ -1336,8 +1336,8 @@ typedef PJRT_Error* PJRT_DeviceDescription_ToString(
 struct PJRT_Device_GetDescription_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_Device* device;
-  PJRT_DeviceDescription* device_description;  // out
+  PjrtDevice* device;
+  PjrtDeviceDescription* device_description;  // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Device_GetDescription_Args, device_description);
 
@@ -1348,7 +1348,7 @@ typedef PJRT_Error* PJRT_Device_GetDescription(
 struct PJRT_Device_IsAddressable_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_Device* device;
+  PjrtDevice* device;
   bool is_addressable;  // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Device_IsAddressable_Args, is_addressable);
@@ -1360,7 +1360,7 @@ typedef PJRT_Error* PJRT_Device_IsAddressable(
 struct PJRT_Device_LocalHardwareId_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_Device* device;
+  PjrtDevice* device;
   int local_hardware_id;  // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Device_LocalHardwareId_Args, local_hardware_id);
@@ -1373,7 +1373,7 @@ typedef PJRT_Error* PJRT_Device_LocalHardwareId(
 struct PJRT_Device_AddressableMemories_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_Device* device;
+  PjrtDevice* device;
   // Has the lifetime of `device`.
   PJRT_Memory* const* memories;  // out
   size_t num_memories;           // out
@@ -1387,7 +1387,7 @@ typedef PJRT_Error* PJRT_Device_AddressableMemories(
 struct PJRT_Device_DefaultMemory_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_Device* device;
+  PjrtDevice* device;
   // `memory` has the same lifetime as `device`.
   PJRT_Memory* memory;  // out
 };
@@ -1401,7 +1401,7 @@ typedef PJRT_Error* PJRT_Device_DefaultMemory(
 struct PJRT_Device_MemoryStats_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_Device* device;
+  PjrtDevice* device;
 
   // Number of bytes in use.
   int64_t bytes_in_use;  // out
@@ -1451,7 +1451,7 @@ struct PJRT_Device_PoisonExecution_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
 
-  PJRT_Device* device;
+  PjrtDevice* device;
   int32_t launch_id;
 
   // Status fields.
@@ -1475,7 +1475,7 @@ typedef struct PJRT_AsyncTrackingEvent PJRT_AsyncTrackingEvent;
 struct PJRT_Device_CreateAsyncTrackingEvent_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
-  PJRT_Device* device;
+  PjrtDevice* device;
   const char* description;
   size_t description_size;
   PJRT_AsyncTrackingEvent* event;  // out
@@ -1564,7 +1564,7 @@ struct PJRT_Memory_AddressableByDevices_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
   PJRT_Memory* memory;
-  PJRT_Device* const* devices;  // out
+  PjrtDevice* const* devices;  // out
   size_t num_devices;           // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Memory_AddressableByDevices_Args, num_devices);
@@ -1712,7 +1712,7 @@ struct PJRT_LoadedExecutable_AddressableDevices_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
   PJRT_LoadedExecutable* executable;
-  PJRT_Device* const* addressable_devices;  // out
+  PjrtDevice* const* addressable_devices;  // out
   size_t num_addressable_devices;           // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_LoadedExecutable_AddressableDevices_Args,
@@ -1910,7 +1910,7 @@ struct PJRT_LoadedExecutable_Execute_Args {
   // make sure the executable is launched on all participating devices specified
   // at compile time. Setting this field may not be supported on all platforms
   // or executables.
-  PJRT_Device* execute_device;
+  PjrtDevice* execute_device;
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_LoadedExecutable_Execute_Args, execute_device);
 
@@ -2360,7 +2360,7 @@ struct PJRT_Buffer_CopyToDevice_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
   PJRT_Buffer* buffer;
-  PJRT_Device* dst_device;
+  PjrtDevice* dst_device;
   PJRT_Buffer* dst_buffer;  // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Buffer_CopyToDevice_Args, dst_buffer);
@@ -2401,7 +2401,7 @@ struct PJRT_Buffer_Device_Args {
   size_t struct_size;
   PJRT_Extension_Base* extension_start;
   PJRT_Buffer* buffer;
-  PJRT_Device* device;  // out
+  PjrtDevice* device;  // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_Buffer_Device_Args, device);
 
@@ -2666,7 +2666,7 @@ struct PJRT_TopologyDescription_GetDeviceDescriptions_Args {
   PJRT_Extension_Base* extension_start;
   const PJRT_TopologyDescription* topology;
   // Has the same lifetime as topology.
-  PJRT_DeviceDescription* const* descriptions;  // out
+  PjrtDeviceDescription* const* descriptions;  // out
   size_t num_descriptions;                      // out
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_TopologyDescription_GetDeviceDescriptions_Args,

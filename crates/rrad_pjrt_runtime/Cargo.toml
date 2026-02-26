@@ -1,12 +1,19 @@
 [package]
 name = "rrad_pjrt_runtime"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+autobins = false
+description = "Experimental Rust PJRT runtime/provider implementation"
+license = "Apache-2.0"
+authors = ["Alazar Manakelew <alazermanakelewb@gmail.com>"]
 
-[package.metadata]
-author = ["Alazar Manakelew alazermanakelewb@gmail.com"]
+[features]
+default = []
+components = []
 
 [dependencies]
 
 [lib]
-crate-type = ["cdylib"]
+name = "rrad_pjrt_runtime"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]

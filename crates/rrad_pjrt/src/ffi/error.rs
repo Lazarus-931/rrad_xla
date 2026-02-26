@@ -7,39 +7,39 @@ pub struct PjrtBindingError {
 }
 
 /// This is the error type returned by rrad_pjrt_runtime bindings and the rrad_pjrt_runtime crate. It covers major errors that
-/// such as api depreciation from xla lib as well as failed to load the api library. This is separate
+/// such as api_wrapper depreciation from xla lib as well as failed to load the api_wrapper library. This is separate
 /// from the binding level error such as [`crate::error::PJRTError`], this is rather lower than that, and precedes it in fact.
 /// For example, [`PJRTLoader`](crate::loader::PjrtRuntime) uses PjrtBindingError but not [`crate::error::PJRTError`] since the loader establishes the
-/// api in the first place, which is needed for [`crate::error::PJRTError`].
+/// api_wrapper in the first place, which is needed for [`crate::error::PJRTError`].
 
 
 #[derive(Error, Debug)]
 pub enum PjrtFfiError {
-    #[error("rrad_pjrt currently does not support {pjrt_c_api} this xla rrad_pjrt_runtime ffi api: {message}")]
+    #[error("rrad_pjrt currently does not support {pjrt_c_api} this xla rrad_pjrt_runtime ffi api_wrapper: {message}")]
     IncompatibleApi {
         pjrt_c_api: &'static str,
         message: String,
     },
 
-    #[error("failed to get rrad_pjrt_runtime api: {message}")]
+    #[error("failed to get rrad_pjrt_runtime api_wrapper: {message}")]
     FailedToGetPjrtApi { message: String },
 
     #[error("failed to load pjrt_c_api lib: {message}")]
     FailedToLoadPjrtLib { message: String },
 
-    #[error("rrad_pjrt_runtime api: {rrad_pjrt_bind} is deprecated: {message}")]
+    #[error("rrad_pjrt_runtime api_wrapper: {rrad_pjrt_bind} is deprecated: {message}")]
     DeprecatedApi {
         rrad_pjrt_bind: String,
         message: String,
     },
 
-    #[error("null value returned from rrad_pjrt_runtime api: {message}")]
+    #[error("null value returned from rrad_pjrt_runtime api_wrapper: {message}")]
     NullValueReturned { message: String },
 
-    #[error("invalid utf8 string returned from rrad_pjrt_runtime api: {message}")]
+    #[error("invalid utf8 string returned from rrad_pjrt_runtime api_wrapper: {message}")]
     InvalidUtf8StringReturned { message: String },
 
-    #[error("api mismatch for {api}: expected={expected} actual={actual}. {message}")]
+    #[error("api_wrapper mismatch for {api_wrapper}: expected={expected} actual={actual}. {message}")]
     ApiMismatch {
         message: String,
         expected: &'static str,
@@ -47,7 +47,7 @@ pub enum PjrtFfiError {
         api: &'static str,
     },
 
-    #[error("struct-size mismatch for {api}: expected={expected} actual={actual}. {message}")]
+    #[error("struct-size mismatch for {api_wrapper}: expected={expected} actual={actual}. {message}")]
     StructSizeMismatch {
         message: String,
         expected: usize,
@@ -55,7 +55,7 @@ pub enum PjrtFfiError {
         api: &'static str,
     },
 
-    #[error("rrad_pjrt_runtime api version mismatch: plugin_major={major_version} plugin_minor={minor_version}")]
+    #[error("rrad_pjrt_runtime api_wrapper version mismatch: plugin_major={major_version} plugin_minor={minor_version}")]
     ApiVersionMismatch {
         major_version: i32,
         minor_version: i32,

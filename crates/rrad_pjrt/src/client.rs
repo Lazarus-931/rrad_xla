@@ -20,7 +20,7 @@ pub struct PJRTClient<'rt> {
 /// Client wrapper for [`crate::ffi::pjrt_sys::PJRT_Client`] which is the main part needed to
 /// interact with rrad_pjrt_runtime component such as [`crate::ffi::pjrt_sys::PJRT_Device`] or [`crate::ffi::pjrt_sys::PJRT_Buffer`].
 
-/// Handles the use of all components.
+/// Handles the use of all internal.
 impl<'rt> PJRTClient<'rt> {
     /// Constructs local error definitions for client-related errors.
     pub fn error(&self, msg: impl Into<String>) -> PJRTError<'rt> {

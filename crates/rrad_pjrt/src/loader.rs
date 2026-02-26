@@ -162,7 +162,7 @@ impl PjrtRuntime {
     pub fn create_device(&self) -> Result<*mut PJRT_Device, PJRTError<'_>> {
         Err(PJRTError::invalid_arg(
             self,
-            "PJRT_Device objects are obtained from PJRT_Client_Devices; there is no PJRT_Device_Create in the C API",
+            "PjrtDevice objects are obtained from PJRT_Client_Devices; there is no PJRT_Device_Create in the C API",
         ))
     }
 

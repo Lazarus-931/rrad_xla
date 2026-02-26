@@ -1,0 +1,14 @@
+[package]
+name = "rrad_src"
+version = "0.1.0"
+edition = "2021"
+description = "CLI sandbox crate for rrad workspace experiments"
+license = "Apache-2.0"
+
+[[bin]]
+name = "rrad_src"
+path = "src/main.rs"
+
+[dependencies]
+rrad_pjrt = { path = "../rrad_pjrt" }
+rrad_mlir = { path = "../rrad_mlir" }

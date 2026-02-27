@@ -1,9 +1,10 @@
+use crate::c::device_description::RradDeviceDescription;
 use crate::internal::device_description::{RradDeviceDescriptionInternal, PjrtDeviceDescriptionTrait};
 
 pub trait PjrtDevice {
     fn id(&self) -> i64;
     fn is_addressable(&self) -> bool;
-    fn description(&self) -> &dyn RradDeviceDescriptionInternal;
+    fn description(&self) -> &dyn PjrtDeviceDescriptionTrait;
 }
 
 pub struct PjRtCApiDevice {
@@ -16,7 +17,7 @@ impl PjRtCApiDevice {
     pub fn new(
         id: i64,
         addressable: bool,
-        description: Box<dyn PjrtDeviceDescription + Send + Sync>,
+        description: Box<dyn PjrtDeviceDescriptionTrait + Send + Sync>,
     ) -> Self {
         Self {
             id,
@@ -35,7 +36,7 @@ impl PjrtDevice for PjRtCApiDevice {
         self.addressable
     }
 
-    fn description(&self) -> &dyn PjrtDeviceDescription {
+    fn description(&self) -> &dyn PjrtDeviceDescriptionTrait {
         self.description.as_ref()
     }
 }

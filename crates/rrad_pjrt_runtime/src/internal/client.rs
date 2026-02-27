@@ -3,15 +3,23 @@ use core::ffi::c_void;
 use crate::internal::device::PjrtDevice;
 use crate::runtime_util::PJRTRuntimeError;
 use crate::internal::device::RradDeviceInternal;
-use crate::internal::memory::RradMemoryInternal;
+use crate::internal::memory::RradMemorySpaceInternal;
 
-pub struct RradClient<'client> {
+pub struct RradClientInternal {
     id: i32,
     platform_name: String,
     process_index: usize,
     devices: Vec<RradDeviceInternal>,
-    memories: Vec<RradMemoryInternal>,
+    memories: Vec<RradMemorySpaceInternal>,
 
+}
+
+pub struct RradBuffer<'client> {
+    _phantom: std::marker::PhantomData<&'client ()>,
+}
+
+pub struct RradExecutable<'client> {
+    _phantom: std::marker::PhantomData<&'client ()>,
 }
 
 

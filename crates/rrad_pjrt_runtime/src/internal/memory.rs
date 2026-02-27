@@ -1,13 +1,12 @@
-use crate::internal::client::RradClient;
+use crate::internal::client::RradClientInternal;
 use crate::internal::device::RradDeviceInternal;
 
-pub struct RradMemorySpaceInternal {
-    pub device
-}
 
-pub struct RradMemoryInternal {
-    pub memory_space: *mut RradMemorySpace,
+
+pub struct RradMemorySpaceInternal {
+    pub id: i64,
+    pub kind: String,
     pub devices: Vec<RradDeviceInternal>,
-    pub client: *mut RradClient,
+    pub client: *mut RradClientInternal,
 }
 

@@ -7,5 +7,7 @@ pub struct RradApi {
 }
 
 impl RradApi {
-    pub fn get_registered_api
+    pub fn get_registered_api() -> Option<&'static RradApi> {
+        None
+    }
 }

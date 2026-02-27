@@ -1,4 +1,4 @@
-use crate::c::pjrt::{PJRT_Client_Create_Args, PJRT_Error};
+use crate::sys::pjrt::{PJRT_Client_Create_Args, PJRT_Error};
 
 pub struct RradApi {
     pub struct_size: usize,

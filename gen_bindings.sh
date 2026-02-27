@@ -90,7 +90,7 @@ run_bindgen() {
     args+=(--formatter prettyplease)
   fi
 
-  bindgen "${args[@]}" -- -x c -std=c11
+  bindgen "${args[@]}" -- -x sys -std=c11
 }
 
 STABLE_HEADER_PATH="$(resolve_header "${1:-}")"

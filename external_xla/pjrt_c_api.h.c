@@ -1763,10 +1763,10 @@ struct PJRT_LoadedExecutable_Delete_Args {
 };
 PJRT_DEFINE_STRUCT_TRAITS(PJRT_LoadedExecutable_Delete_Args, executable);
 
-// Drops `executable`'s reference to the internal runtime object and
+// Drops `executable`'s reference to the domain runtime object and
 // associated resources, without freeing the `executable` object itself.
 // `executable` can only be used with PJRT_LoadedExecutable_IsDeleted and
-// PJRT_LoadedExecutable_Destroy after calling this method. The internal runtime
+// PJRT_LoadedExecutable_Destroy after calling this method. The domain runtime
 // executable will be freed after the last execution completes.
 typedef PJRT_Error* PJRT_LoadedExecutable_Delete(
     PJRT_LoadedExecutable_Delete_Args* args);

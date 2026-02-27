@@ -10,7 +10,7 @@ fn module_constructor_rejects_empty_source() {
 fn module_format_name_mapping_smoke() {
     let mlir = ModuleText::mlir("module { func.func @main() -> () { return } }").unwrap();
     let stablehlo = ModuleText::stablehlo("module { func.func @main() -> () { return } }").unwrap();
-    let hlo = ModuleText::hlo("HloModule test\nENTRY main() -> f32[] { ROOT c = f32[] constant(1) }").unwrap();
+    let hlo = ModuleText::hlo("HloModule test\nENTRY main() -> f32[] { ROOT sys = f32[] constant(1) }").unwrap();
 
     assert_eq!(mlir.format_name(), "mlir");
     assert_eq!(stablehlo.format_name(), "stablehlo");

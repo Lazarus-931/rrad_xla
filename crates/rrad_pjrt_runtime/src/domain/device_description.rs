@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use crate::c::pjrt::PJRT_NamedValue;
-use crate::internal::utils::PjAttributeValue;
+use crate::sys::pjrt::PJRT_NamedValue;
+use crate::domain::utils::PjAttributeValue;
 
 #[derive(Debug, Clone)]
 pub struct RradDeviceDescriptionInternal {

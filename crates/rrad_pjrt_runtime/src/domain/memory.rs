@@ -1,5 +1,5 @@
-use crate::internal::client::RradClientInternal;
-use crate::internal::device::RradDeviceInternal;
+use crate::domain::client::RradClientInternal;
+use crate::domain::device::RradDeviceInternal;
 
 
 

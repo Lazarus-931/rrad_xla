@@ -1,9 +1,9 @@
-use crate::api_wrapper::client::*;
-use crate::c::pjrt::PJRT_NamedValue;
-use crate::internal::client::RradClientInternal;
-use crate::internal::device::RradDeviceInternal;
-use crate::internal::device_description::{PjrtDeviceDescriptionTrait, RradDeviceDescriptionInternal};
-use crate::internal::memory::RradMemorySpaceInternal;
+use crate::bridge::client::*;
+use crate::sys::pjrt::PJRT_NamedValue;
+use crate::domain::client::RradClientInternal;
+use crate::domain::device::RradDeviceInternal;
+use crate::domain::device_description::{PjrtDeviceDescriptionTrait, RradDeviceDescriptionInternal};
+use crate::domain::memory::RradMemorySpaceInternal;
 
 #[repr(C)]
 pub struct RradDeviceDescription<'client> {

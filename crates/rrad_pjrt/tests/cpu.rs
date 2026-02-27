@@ -27,9 +27,9 @@ fn resolve_plugin_path() -> Option<PathBuf> {
         .unwrap_or_else(|| crate_root.clone());
 
     let rel_candidates = [
-        "xla/bazel-bin/xla/rrad_pjrt_runtime/c/pjrt_c_api_cpu_plugin.so",
-        "xla/bazel-bin/xla/rrad_pjrt_runtime/c/pjrt_c_api_cpu_plugin.dylib",
-        "xla/bazel-bin/xla/rrad_pjrt_runtime/c/pjrt_c_api_cpu_plugin",
+        "xla/bazel-bin/xla/rrad_pjrt_runtime/sys/pjrt_c_api_cpu_plugin.so",
+        "xla/bazel-bin/xla/rrad_pjrt_runtime/sys/pjrt_c_api_cpu_plugin.dylib",
+        "xla/bazel-bin/xla/rrad_pjrt_runtime/sys/pjrt_c_api_cpu_plugin",
     ];
 
     for base in [&crate_root, &workspace_root] {

@@ -54,7 +54,7 @@ jobs:
 
       - name: Regenerate PJRT bindings
         if: steps.xla_sha.outputs.needs_update == 'true'
-        run: ./gen_bindings.sh xla/xla/rrad_pjrt_runtime/c/pjrt_c_api.h crates/rrad_pjrt/src/ffi/pjrt_bindings.rs
+        run: ./gen_bindings.sh xla/xla/rrad_pjrt_runtime/sys/pjrt_c_api.h crates/rrad_pjrt/src/ffi/pjrt_bindings.rs
 
       - name: Update pinned XLA commit in CI workflow
         if: steps.xla_sha.outputs.needs_update == 'true'

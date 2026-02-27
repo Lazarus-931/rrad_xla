@@ -12,6 +12,7 @@ default = []
 components = []
 
 [dependencies]
+libc = "1.0.0-alpha.3"
 
 [lib]
 name = "rrad_pjrt_runtime"

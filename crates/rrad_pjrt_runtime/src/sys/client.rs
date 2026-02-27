@@ -1,6 +1,6 @@
-use crate::api_wrapper::client::*;
-use crate::c::device_description::{RradDevice, RradMemorySpace};
-use crate::internal::client::*;
+use crate::bridge::client::*;
+use crate::sys::device_description::{RradDevice, RradMemorySpace};
+use crate::domain::client::*;
 
 
 

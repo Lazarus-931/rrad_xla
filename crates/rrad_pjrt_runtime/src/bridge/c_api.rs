@@ -2,7 +2,7 @@ use std::mem::zeroed;
 use std::ptr::{null, null_mut};
 use std::sync::Once;
 
-use crate::c::pjrt::{
+use crate::sys::pjrt::{
     PJRT_API_MAJOR, PJRT_API_MINOR, PJRT_Api, PJRT_Buffer_Destroy_Args, PJRT_Client_Compile_Args,
     PJRT_Client_Create_Args, PJRT_Client_Destroy_Args, PJRT_Error,
     PJRT_Error_Code_PJRT_Error_Code_INVALID_ARGUMENT, PJRT_Event_Destroy_Args,
@@ -35,7 +35,7 @@ fn build_api_table() -> PJRT_Api {
     api.struct_size = core::mem::size_of::<PJRT_Api>();
     api.extension_start = null_mut();
 
-    api.pjrt_api_version.struct_size = core::mem::size_of::<crate::c::pjrt::PJRT_Api_Version>();
+    api.pjrt_api_version.struct_size = core::mem::size_of::<crate::sys::pjrt::PJRT_Api_Version>();
     api.pjrt_api_version.extension_start = null_mut();
     api.pjrt_api_version.major_version = PJRT_API_MAJOR as i32;
     api.pjrt_api_version.minor_version = PJRT_API_MINOR as i32;

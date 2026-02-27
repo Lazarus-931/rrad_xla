@@ -1,7 +1,7 @@
-use crate::internal::client::{PjRtCApiClient, RradClientInternal};
-use crate::internal::device_description::RradDeviceDescriptionInternal;
-use crate::c::device_description::{RradDeviceDescription, RradMemorySpace};
-use crate::internal::device::{PjRtCApiDevice, RradDeviceInternal};
+use crate::domain::client::{PjRtCApiClient, RradClientInternal};
+use crate::domain::device_description::RradDeviceDescriptionInternal;
+use crate::sys::device_description::{RradDeviceDescription, RradMemorySpace};
+use crate::domain::device::{PjRtCApiDevice, RradDeviceInternal};
 use super::rrad_api::RradApi;
 
 #[repr(C)]

@@ -28,7 +28,7 @@ pub struct PJRTExecutable<'rt> {
     pub raw: *mut PJRT_Executable,
 }
 
-//generic container for easier api_wrapper/tests
+//generic container for easier bridge/tests
 pub struct CompiledMemoryStats {
     pub generated_code_size_in_bytes: i64,
     pub argument_size_in_bytes: i64,

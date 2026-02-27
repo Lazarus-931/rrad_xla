@@ -1,5 +1,4 @@
-pub mod c;
-pub mod api_wrapper;
+pub mod bridge;
 
 pub mod wrapper;
 pub mod error;
@@ -7,11 +6,12 @@ pub mod runtime_util;
 
 pub mod utils;
 
-pub mod internal;
+pub mod domain;
+pub mod sys;
 
-use crate::c::pjrt::PJRT_Api;
+use sys::pjrt::PJRT_Api;
 
 #[no_mangle]
 pub extern "C" fn GetPjrtApi() -> *const PJRT_Api {
-    api_wrapper::c_api::get_pjrt_api()
+    bridge::c_api::get_pjrt_api()
 }

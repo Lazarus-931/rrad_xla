@@ -1,4 +1,4 @@
-use crate::c::pjrt::{
+use crate::sys::pjrt::{
     PJRT_Error_Code,
     PJRT_Error_Code_PJRT_Error_Code_ALREADY_EXISTS,
     PJRT_Error_Code_PJRT_Error_Code_FAILED_PRECONDITION,

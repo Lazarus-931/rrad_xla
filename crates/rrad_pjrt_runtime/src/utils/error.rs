@@ -1,7 +1,7 @@
 use std::ffi::c_char;
 use std::ptr::{null, null_mut};
 
-use crate::c::pjrt::{
+use crate::sys::pjrt::{
     PJRT_Error, PJRT_Error_Code, PJRT_Error_Code_PJRT_Error_Code_INVALID_ARGUMENT,
     PJRT_Error_Destroy_Args, PJRT_Error_GetCode_Args, PJRT_Error_Message_Args,
 };

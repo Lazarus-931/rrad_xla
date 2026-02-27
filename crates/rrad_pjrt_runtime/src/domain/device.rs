@@ -1,5 +1,5 @@
-use crate::c::device_description::RradDeviceDescription;
-use crate::internal::device_description::{RradDeviceDescriptionInternal, PjrtDeviceDescriptionTrait};
+use crate::sys::device_description::RradDeviceDescription;
+use crate::domain::device_description::{RradDeviceDescriptionInternal, PjrtDeviceDescriptionTrait};
 
 pub trait PjrtDevice {
     fn id(&self) -> i64;

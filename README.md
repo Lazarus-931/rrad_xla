@@ -1,4 +1,8 @@
-# rrad_xla
+# rrad_xla - rrad's xla crate
+
+what is rrad? 
+
+rrad - Rusty Runtime for accelerated devices
 rust in xla, like never before
 
 

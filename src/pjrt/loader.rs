@@ -15,6 +15,13 @@ pub struct PjrtRuntime {
     api: *const PJRT_Api,
 }
 
+// Safety: `PJRT_Api` is a static function-pointer table that the backend
+// library owns for the lifetime of the process.  All PJRT functions are
+// required by the spec to be thread-safe, and `PjrtRuntime` has no mutable
+// state after construction.
+unsafe impl Send for PjrtRuntime {}
+unsafe impl Sync for PjrtRuntime {}
+
 impl PjrtRuntime {
     pub fn load(plugin_path: &Path) -> Result<Self, String> {
         let lib = unsafe { Library::new(plugin_path) }

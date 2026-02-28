@@ -5,10 +5,12 @@ edition = "2021"
 description = "Experimental Rust foundations for XLA HLO/PJRT integration"
 license = "Apache-2.0"
 
-
+# Build as both a cdylib (PJRT plugin .so / PyO3 extension) and an rlib
+# (for `cargo test` and the binary to link against).
 [lib]
 name = "rrad_xla"
 path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
 
 [[bin]]
 name = "rrad_xla"
@@ -18,3 +20,21 @@ path = "src/main.rs"
 libc = "0.2.0"
 libloading = "0.9.0"
 log = "0.4.29"
+# PyO3 is only pulled in when the `python` feature is enabled.
+pyo3 = { version = "0.22", features = ["extension-module"], optional = true }
+
+[features]
+# Build the Rust PJRT proxy plugin (exports GetPjrtApi / GetPjrtApiForTf).
+# Enabled by default so that `cargo build` always produces a usable .so.
+default = ["pjrt-plugin"]
+
+# PJRT plugin proxy layer — transparent forwarding via GetPjrtApi.
+pjrt-plugin = []
+
+# PyO3 Python extension module — wraps PjrtRuntime / PJRTClient / … for
+# direct Python access.  Built separately from the PJRT plugin .so because
+# a PyO3 module and a PJRT plugin cannot share the same init symbol.
+#
+# Build with:  maturin develop --features python
+#           or cargo build --release --features python
+python = ["pyo3"]

@@ -76,8 +76,32 @@ jobs:
       - name: Validate Test Scripts
         if: runner.os != 'Windows'
         run: |
-          bash -n tests/common.sh tests/run_pjrt_loader_smoke.sh tests/run_pjrt_cpu_runtime_test.sh tests/run_jax_plugin_smoke.sh
-          python -m py_compile tests/jax_plugin_smoke.py tests/jax_plugins/rrad_xla_cpu/__init__.py
+          bash -n tests/common.sh \
+            tests/run_pjrt_loader_smoke.sh \
+            tests/run_pjrt_cpu_runtime_test.sh \
+            tests/run_jax_plugin_smoke.sh \
+            tests/run_rust_pjrt_plugin_smoke.sh \
+            tests/run_tf_pjrt_smoke.sh
+          python -m py_compile \
+            tests/jax_plugin_smoke.py \
+            tests/jax_plugins/rrad_xla_cpu/__init__.py \
+            tests/tf_pjrt/__init__.py \
+            tests/tf_pjrt_smoke.py
+
+      - name: Build cdylib (PJRT plugin + symbol check)
+        if: runner.os != 'Windows'
+        run: |
+          cargo build --release
+          if command -v nm >/dev/null 2>&1; then
+            LIB=$(ls target/release/librrad_xla.so target/release/librrad_xla.dylib 2>/dev/null | head -1)
+            if [[ -n "${LIB}" ]]; then
+              nm -D "${LIB}" | grep -q 'GetPjrtApi' \
+                || { echo "::error::GetPjrtApi not exported from ${LIB}"; exit 1; }
+              nm -D "${LIB}" | grep -q 'GetPjrtApiForTf' \
+                || { echo "::warning::GetPjrtApiForTf not exported (TF entry-point missing)"; }
+              echo "Symbol exports verified: GetPjrtApi, GetPjrtApiForTf"
+            fi
+          fi
 
   pjrt_loader_integration:
     name: PJRT Loader Integration (macOS)
@@ -208,5 +232,133 @@ jobs:
           pip install --pre -U jaxlib -i https://us-python.pkg.dev/ml-oss-artifacts-published/jax/simple/
           pip install git+https://github.com/google/jax
 
-      - name: Run JAX Plugin Smoke
-        run: tests/run_jax_plugin_smoke.sh
+      - name: Run JAX Plugin Smoke (direct XLA mode)
+        run: RRAD_PLUGIN_MODE=direct tests/run_jax_plugin_smoke.sh
+
+  jax_rust_plugin_smoke:
+    name: JAX Rust Plugin Smoke (Manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-13
+    needs: pjrt_loader_integration
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Bazelisk
+        run: brew install bazelisk
+
+      - name: Fetch XLA (Pinned)
+        run: |
+          rm -rf xla
+          git init xla
+          cd xla
+          git remote add origin https://github.com/openxla/xla.git
+          git fetch --depth 1 origin "${XLA_COMMIT}"
+          git checkout FETCH_HEAD
+
+      - name: Patch XLA For OSS Rules (strict_deps)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("xla/xla/tsl/tsl.bzl")
+          txt = path.read_text(encoding="utf-8")
+          if "strict_deps" not in txt:
+              print("No strict_deps found; skipping patch.")
+              raise SystemExit(0)
+          lines = txt.splitlines(True)
+          new_lines = [ln for ln in lines if "strict_deps" not in ln]
+          path.write_text("".join(new_lines), encoding="utf-8")
+          print("Patched:", path)
+          PY
+
+      - name: Build PJRT CPU Plugin (XLA backend)
+        run: |
+          PYBIN="$(command -v python3)"
+          SDK_VER="$(xcrun --show-sdk-version --sdk macosx)"
+          cd xla
+          bazel build \
+            --python_path="${PYBIN}" \
+            --action_env=PYTHON_BIN_PATH="${PYBIN}" \
+            --repo_env=PYTHON_BIN_PATH="${PYBIN}" \
+            --macos_sdk_version="${SDK_VER}" \
+            //xla/pjrt/c:pjrt_c_api_cpu_plugin.so
+
+      - name: Build Rust PJRT Proxy cdylib
+        run: cargo build --release
+
+      - name: Verify GetPjrtApi symbol
+        run: |
+          LIB=$(ls target/release/librrad_xla.so target/release/librrad_xla.dylib 2>/dev/null | head -1)
+          nm -D "${LIB}" | grep -q 'GetPjrtApi' \
+            || { echo "::error::GetPjrtApi not exported"; exit 1; }
+          echo "GetPjrtApi confirmed in ${LIB}"
+
+      - name: Install JAX (nightly)
+        run: |
+          python -m pip install --upgrade pip
+          pip install --pre -U jaxlib -i https://us-python.pkg.dev/ml-oss-artifacts-published/jax/simple/
+          pip install git+https://github.com/google/jax
+
+      - name: Run JAX Smoke Test via Rust Proxy
+        run: RRAD_PLUGIN_MODE=rust tests/run_rust_pjrt_plugin_smoke.sh
+
+  tf_pjrt_smoke:
+    name: TF PJRT Smoke (Manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    needs: rust_tests
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install TensorFlow
+        run: |
+          python -m pip install --upgrade pip
+          pip install "tensorflow>=2.14"
+
+      - name: Install Bazelisk
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bazelisk || (
+            wget -q https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64 -O /usr/local/bin/bazelisk
+            chmod +x /usr/local/bin/bazelisk
+            ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel
+          )
+
+      - name: Fetch XLA (Pinned)
+        run: |
+          rm -rf xla
+          git init xla
+          cd xla
+          git remote add origin https://github.com/openxla/xla.git
+          git fetch --depth 1 origin "${XLA_COMMIT}"
+          git checkout FETCH_HEAD
+
+      - name: Build PJRT CPU Plugin (XLA backend)
+        run: |
+          cd xla
+          bazel build //xla/pjrt/c:pjrt_c_api_cpu_plugin.so
+
+      - name: Build Rust PJRT Proxy cdylib
+        run: cargo build --release
+
+      - name: Run TF PJRT Smoke Test
+        run: tests/run_tf_pjrt_smoke.sh

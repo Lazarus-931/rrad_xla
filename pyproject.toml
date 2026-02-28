@@ -1,6 +1,33 @@
 [project]
 name = "rrad-xla"
 version = "0.1.0"
-description = "Add your description here"
-requires-python = ">=3.13"
+description = "Rust PJRT integration for JAX and TensorFlow"
+requires-python = ">=3.9"
 dependencies = []
+
+# Optional framework-specific test dependencies.
+[project.optional-dependencies]
+jax = ["jax", "jaxlib"]
+tensorflow = ["tensorflow>=2.14"]
+dev = ["maturin", "pytest"]
+
+# ---------------------------------------------------------------------------
+# Maturin — builds the PyO3 Python extension module (`rrad_xla`).
+#
+# Usage:
+#   maturin develop --features python       # editable install (dev)
+#   maturin build   --features python       # wheel
+# ---------------------------------------------------------------------------
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+# Source the rlib/cdylib from the main Cargo workspace.
+manifest-path = "Cargo.toml"
+# Only include the python feature when building the extension module.
+features = ["python"]
+# The Python module name must match the `#[pymodule]` fn name in src/python/mod.rs.
+python-source = "python"
+# Produce a stable ABI wheel if possible.
+bindings = "pyo3"
